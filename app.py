@@ -5,7 +5,7 @@ Właściciel: M1 (kompozycja). Pozostałe moduły dostarczają funkcje renderuj�
 
 import streamlit as st
 
-from m1_ui_map.layout import inject_css, render_event_panel, render_filters, render_header
+from m1_ui_map.layout import LOGO_MARK_PATH, inject_css, render_event_panel, render_filters, render_header
 from m1_ui_map.map_view import render_map
 from m3_profile.views import render_profile_editor, render_profile_view
 from m5_chat.chat_view import render_chat_room
@@ -14,7 +14,9 @@ from shared.config import APP_NAME, DEFAULT_USER_ID
 from shared.state import View
 from shared.storage import get_storage
 
-st.set_page_config(page_title=APP_NAME, page_icon="📍", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title=APP_NAME, page_icon=LOGO_MARK_PATH, layout="wide", initial_sidebar_state="expanded",
+)
 
 storage = get_storage()
 state.init()
@@ -26,9 +28,8 @@ if user is None:  # pusta baza bez mocków
 
 inject_css()
 render_header(storage, user)
-criteria = render_filters(storage)
+criteria = render_filters(storage)   # sidebar: logo, filtry i licznik wyników
 events = storage.list_events(criteria)
-st.sidebar.caption(f"Na mapie: **{len(events)}** wydarzeń")
 
 center, right = st.columns([2.6, 1.2], gap="medium")
 

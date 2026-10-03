@@ -1,5 +1,24 @@
+# Konfiguracja Streamlit dla KRK Razem (właściciel: M1). Nazwa i podtytuł aplikacji: shared/config.py.
+
 [theme]
+# Wspólne dla jasnego i ciemnego motywu. Inter z Google Fonts; bez internetu przeglądarka bierze
+# systemowy sans-serif (demo działa offline).
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap, sans-serif"
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap, sans-serif"
+baseRadius = "0.625rem"
+showSidebarBorder = true
+
+# Kolor akcentu marki — ten sam odcień co awatary (M3), chipy wspólnych tagów (M3) i własne dymki czatu (M5).
+# Osobne sekcje light/dark -> aplikacja dalej podąża za motywem systemu użytkownika.
+[theme.light]
 primaryColor = "#E4572E"
+
+[theme.dark]
+primaryColor = "#E4572E"
+
+[client]
+# Bez „Deploy” i menu deweloperskiego w prawym górnym rogu (nachodziły na header aplikacji).
+toolbarMode = "minimal"
 
 [server]
 runOnSave = true
