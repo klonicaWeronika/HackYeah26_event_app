@@ -15,6 +15,6 @@ MAX_MATCHES_IN_PANEL = 8
 FEATURES: dict[str, bool] = {
     "recommendations": True,       # M4: "Polecane dla Ciebie" w pustym prawym panelu
     "profile_view": True,          # M3: podgląd cudzego profilu
-    "dm_chat": False,              # M5: prywatny czat 1:1 z dopasowaną osobą
+    "dm_chat": True,               # M5: prywatny czat 1:1 z dopasowaną osobą
     "add_event": True,             # M2: formularz dodawania własnego wydarzenia
 }
