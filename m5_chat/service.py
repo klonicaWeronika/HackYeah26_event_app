@@ -8,6 +8,7 @@ Prywatne rozmowy (DM):
     dm_participants(room_id) -> tuple[str, str] | None
     can_access_room(room_id, user_id) -> bool
     list_conversations(storage, user_id) -> list[Conversation]
+    dm_candidates(storage, room_id, me_id, messages) -> list[User]
 Anty-spam i higiena tekstu:
     sanitize_text(text) -> str
     seconds_until_allowed(last_sent_at, now) -> float
@@ -144,6 +145,28 @@ def list_conversations(storage: Storage, user_id: str) -> list[Conversation]:
             conversations.append(Conversation(room_id, other, last[-1]))
     conversations.sort(key=lambda c: c.last.created_at, reverse=True)
     return conversations
+
+
+def dm_candidates(
+    storage: Storage, room_id: str, me_id: str, messages: Iterable[ChatMessage], *, limit: int = 12
+) -> list[User]:
+    """Do kogo można napisać prywatnie z czatu wydarzenia: najpierw autorzy wiadomości (od najświeższej),
+    potem zapisani na wydarzenie, którzy zgodzili się na dopasowania (open_to_meet).
+
+    Bez mnie i bez nieznanych ID; kto ukrył się w dopasowaniach i nic nie napisał, nie trafia na listę.
+    Dla DM i innych pokojów -> [].
+    """
+    kind, _, event_id = room_id.partition(":")
+    if kind != "event":
+        return []
+    ordered: dict[str, None] = {}
+    for message in reversed(list(messages)):
+        ordered.setdefault(message.user_id, None)
+    for attendance in storage.list_attendees(event_id):
+        if attendance.open_to_meet:
+            ordered.setdefault(attendance.user_id, None)
+    ordered.pop(me_id, None)
+    return list(storage.get_users(ordered).values())[:limit]
 
 
 def escape_markdown(text: str) -> str:

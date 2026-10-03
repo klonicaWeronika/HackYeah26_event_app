@@ -6,8 +6,9 @@ Test "na żywo": otwórz dwie karty
     http://localhost:8501/?user=u_kuba
 i pisz z obu — wiadomości pojawiają się po <= CHAT_POLL_SECONDS.
 Klik w awatar/imię autora -> profil (M3); „← Wróć do mapy” wraca tu do czatu.
-DM: „✉️ Napisz do…” w panelu bocznym (zastępuje przycisk „Napisz” z karty osoby M3),
-„← Mapa” w DM wraca do czatu wydarzenia. Sandbox pokazuje DM bez względu na FEATURES["dm_chat"].
+DM: „✉️ Napisz” nad czatem wydarzenia albo „✉️ Napisz do…” w panelu bocznym (zastępuje
+przycisk „Napisz” z karty osoby M3); „← Mapa” w DM wraca do czatu wydarzenia.
+Sandbox pokazuje DM bez względu na FEATURES["dm_chat"].
 """
 
 import sys
@@ -51,4 +52,4 @@ if state.current_view() is View.PROFILE_VIEW and (viewed := storage.get_user(sta
 elif state.current_view() is View.CHAT and room_id and room_id.startswith("dm:"):
     render_chat_room(storage, user, room_id)
 else:
-    render_chat_room(storage, user, event_room_id(event_id))
+    render_chat_room(storage, user, event_room_id(event_id), allow_dm=True)

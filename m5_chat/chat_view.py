@@ -18,9 +18,9 @@ from collections.abc import Iterable
 import streamlit as st
 
 from m5_chat.service import (
-    BUFFER_LIMIT, MAX_MESSAGE_LEN, Conversation, attendance_counts, can_access_room, css_string, escape_markdown,
-    group_messages, list_conversations, refresh_messages, room_title, safe_avatar_src, seconds_until_allowed,
-    send_message, set_attendance,
+    BUFFER_LIMIT, MAX_MESSAGE_LEN, Conversation, attendance_counts, can_access_room, css_string, dm_candidates,
+    escape_markdown, group_messages, list_conversations, refresh_messages, room_title, safe_avatar_src,
+    seconds_until_allowed, send_message, set_attendance,
 )
 from shared import state
 from shared.config import CHAT_POLL_SECONDS, FEATURES
@@ -115,9 +115,15 @@ def _render_group(group: list[ChatMessage], author: User | None, *, can_open_pro
     return clicked
 
 
-def render_chat_room(storage: Storage, user: User, room_id: str, *, height: int = 520) -> None:
-    """Pełny widok czatu w środkowym obszarze (zamiast mapy): czat wydarzenia albo prywatna rozmowa."""
-    col_back, col_title = st.columns([1, 5], vertical_alignment="center")
+def render_chat_room(
+    storage: Storage, user: User, room_id: str, *, height: int = 520, allow_dm: bool | None = None,
+) -> None:
+    """Pełny widok czatu w środkowym obszarze (zamiast mapy): czat wydarzenia albo prywatna rozmowa.
+
+    `allow_dm` — przycisk „✉️ Napisz” (prywatnie) nad czatem wydarzenia; None = według FEATURES["dm_chat"].
+    """
+    show_dm = (FEATURES["dm_chat"] if allow_dm is None else allow_dm) and room_id.startswith("event:")
+    col_back, col_title, *col_dm = st.columns([1, 4, 1.6] if show_dm else [1, 5], vertical_alignment="center")
     with col_back:
         st.button("← Mapa", on_click=state.go_to, args=(View.MAP,), key="m5_back")
     if not can_access_room(room_id, user.id):
@@ -132,6 +138,10 @@ def render_chat_room(storage: Storage, user: User, room_id: str, *, height: int 
     # Ten kod NIE wykonuje się w tickach fragmentu, tylko przy pełnym rerunie (wejście do pokoju,
     # „Reset demo”, zmiana użytkownika) -> wtedy bufor ładujemy od nowa; ticki dociągają tylko nowości.
     st.session_state[buf_key] = storage.list_messages(room_id, limit=BUFFER_LIMIT)
+    if col_dm:
+        # Poza fragmentem: lista osób odświeża się przy pełnym rerunie i nie kosztuje nic w tickach.
+        with col_dm[0]:
+            _render_dm_popover(storage, user, room_id, st.session_state[buf_key])
 
     @st.fragment(run_every=CHAT_POLL_SECONDS)
     def _live_chat() -> None:
@@ -260,6 +270,28 @@ def open_dm(me_id: str, other_id: str) -> None:
     """
     if me_id != other_id:
         state.go_to(View.CHAT, room_id=dm_room_id(me_id, other_id))
+
+
+def render_dm_button(me_id: str, other_id: str, *, key: str, label: str = "✉️ Napisz") -> None:
+    """Gotowy przycisk „Napisz” np. na karcie osoby (M3): sam sprawdza FEATURES["dm_chat"]
+    i nie pokazuje się przy własnej karcie. Wołaj poza @st.fragment."""
+    if FEATURES["dm_chat"] and me_id != other_id:
+        st.button(label, key=key, type="tertiary", on_click=open_dm, args=(me_id, other_id))
+
+
+def _render_dm_popover(storage: Storage, user: User, room_id: str, messages: list[ChatMessage]) -> None:
+    """„✉️ Napisz” (prywatnie) w czacie wydarzenia: osoby z czatu i zapisane (open_to_meet) -> open_dm."""
+    with st.popover("✉️ Napisz", help="Prywatna wiadomość do osoby z tego wydarzenia", width="stretch"):
+        people = dm_candidates(storage, room_id, user.id, messages)
+        st.caption(
+            "Rozmowa 1:1 — widzicie ją tylko wy dwoje." if people
+            else "Nikogo tu jeszcze nie ma — zapisz się albo napisz pierwszą wiadomość 🙂"
+        )
+        for person in people:
+            st.button(
+                escape_markdown(person.name), key=f"m5_dmto_{room_id}_{person.id}", type="tertiary",
+                on_click=open_dm, args=(user.id, person.id),
+            )
 
 
 def render_dm_list(storage: Storage, user: User, *, limit: int = 8) -> None:
