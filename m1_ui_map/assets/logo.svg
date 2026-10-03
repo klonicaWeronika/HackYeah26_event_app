@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="172" height="36" viewBox="0 0 172 36">
+  <style>
+    .word { fill: #1F2430; font-family: Inter, "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif; }
+    @media (prefers-color-scheme: dark) { .word { fill: #F3F4F6; } }
+  </style>
+  <defs>
+    <linearGradient id="krk-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F2784B"/>
+      <stop offset="1" stop-color="#D9431A"/>
+    </linearGradient>
+  </defs>
+  <rect width="36" height="36" rx="10" fill="url(#krk-g)"/>
+  <path transform="translate(6 6)" fill="#fff"
+        d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/>
+  <text class="word" x="46" y="25" font-size="20" letter-spacing="-0.3"><tspan font-weight="800">KRK</tspan><tspan font-weight="500" dx="6">Razem</tspan></text>
+</svg>

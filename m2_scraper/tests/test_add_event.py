@@ -141,7 +141,7 @@ def test_full_app_add_event_visible_on_map_and_panel(memory_storage: Storage, mo
     monkeypatch.setitem(__import__("shared.config", fromlist=["FEATURES"]).FEATURES, "add_event", True)
     at = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
     on_map = int(next(c.value for c in at.sidebar.caption if c.value.startswith("Na mapie")).split("**")[1])
-    next(b for b in at.button if b.label == "➕ Dodaj wydarzenie").click().run()
+    at.button(key="m1_menu_add_event").click().run()
     assert at.session_state["view"] == View.ADD_EVENT
     at = _fill_and_save(at, "Spacer fotograficzny po Kazimierzu")
     assert not at.exception

@@ -89,7 +89,7 @@ render_event_panel(storage: Storage, user: User, event: Event | None) -> None
 | `set_filters()` | — | ✅ (co rerun) |
 | `current_user_id()` | ✅ | — |
 
-Prywatne: `m1_f_*` (widgety filtrów), `m1_map_nonce`, `m1_last_click`.
+Prywatne: `m1_f_<pole>_<wersja>` + `m1_f_ver` (widgety filtrów; „Wyczyść” podbija wersję), `m1_menu` (stan popovera „Menu”), `m1_menu_ctx`, `m1_map_nonce`, `m1_last_click`.
 
 ### 3.4 Pliki modułu
 
