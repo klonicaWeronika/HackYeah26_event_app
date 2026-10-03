@@ -103,11 +103,11 @@ Prywatne: `m3_*` (formularz, przełącznik).
 
 ## 5. Definition of Done (demo)
 
-- [ ] Nowa osoba tworzy profil ze zdjęciem z telefonu/laptopa w ≤ 30 s.
-- [ ] Edycja tagów natychmiast wpływa na dopasowania (M4) bez restartu.
-- [ ] Karty osób czytelne w prawym panelu; awatary nigdy „zepsute”.
-- [ ] Odświeżenie strony nie wylogowuje (`?user=` w URL).
-- [ ] `pytest` zielony.
+- [x] Nowa osoba tworzy profil ze zdjęciem z telefonu/laptopa w ≤ 30 s. — `test_onboarding_with_photo`, przebieg w przeglądarce (⚠️ M1: „⚙️ Opcje” częściowo zasłonięte, patrz §8)
+- [x] Edycja tagów natychmiast wpływa na dopasowania (M4) bez restartu. — `test_tag_edit_changes_matching_immediately`
+- [x] Karty osób czytelne w prawym panelu; awatary nigdy „zepsute”. — testy karty i awatara, przeglądarka: 243/293 px, 0 zepsutych obrazków (czat M5: patrz §8)
+- [x] Odświeżenie strony nie wylogowuje (`?user=` w URL). — `test_user_survives_page_refresh_via_url`, test onboardingu z odświeżeniem
+- [x] `pytest` zielony. — 168 passed (M3: 134)
 
 ## 6. Ryzyka i plan B
 
@@ -125,3 +125,34 @@ Prywatne: `m3_*` (formularz, przełącznik).
 | H6 | M3-02..M3-04: upload, walidacja, onboarding |
 | H12 | M3-05/M3-06: karty i podgląd profilu (z akcją „Napisz” uzgodnioną z M5) |
 | H18 | Feature freeze |
+
+## 8. Stan realizacji (2026-10-03)
+
+M3-01…M3-09 zrobione (commity `M3-0X: …` na gałęzi `m3-profile`). `shared/state.py` bez zmian — kontrakt pilnuje `tests/test_m3_state.py` (nazwy kluczy, sygnatury, brak „gołych” kluczy w modułach).
+
+**Dostarczone API (addytywnie względem §3.2):**
+
+```python
+# m3_profile/views.py
+avatar_from_upload(data: bytes) -> str          # re-eksport z m3_profile/avatar.py; błąd = AvatarError(ValueError) z komunikatem PL
+render_onboarding(storage) -> User | None       # None, dopóki formularz na ekranie; po zapisie (w callbacku) jednorazowo zwraca nowego User
+user_card_html(user, match=None) -> str         # HTML karty (escapowany) — np. do własnych list
+render_user_card(user, match, *, key)           # przyciski: {key}_profile, {key}_dm („Napisz”: FEATURES["dm_chat"] + m5_chat.chat_view.open_dm)
+# moduły bez streamlit:
+m3_profile/validation.py   validate_profile(name, bio, tags) -> (clean, errors)
+m3_profile/profile_data.py profile_overlap(storage, viewer, profile) -> ProfileOverlap
+m3_profile/privacy.py      set_visibility_everywhere(storage, user_id, visible), visibility_summary(...)
+m3_profile/personas.py     DEMO_PERSONAS, persona_label(user), sort_for_switcher(users)
+```
+
+**Decyzje:** zdjęcie = data URI JPEG 256×256 (< 60 KB, bez EXIF); awatar bez JS (inicjały pod warstwą `background-image`, bo Streamlit wycina `onerror`); `max_upload_size` nieużywane (brak w Streamlit 1.50); M3-08 w wariancie „tylko M3” (zbiorczo `Attendance.open_to_meet`, bez pola w `User`).
+
+**Zależności od innych modułów (propozycje, łatki przekazane osobno):**
+
+| Kto | Co | Po co |
+|---|---|---|
+| M1 | `inject_css`: `padding-top: 3.75rem` | pasek Streamlit (Deploy/⋮) zasłania górę „⚙️ Opcje” |
+| M5 | `open_dm(me_id, other_id)` + `FEATURES["dm_chat"]` | przyciski „Napisz” na karcie i w profilu już czekają |
+| M5 | awatary `data:image/` w czacie (albo `avatar_html`) | zdjęcia z uploadu i fallback inicjałów w czacie |
+| M5 | przełącznik „Pokaż mnie innym” zapisuje w `on_change` | dziś cofa zmiany zrobione poza panelem (M3 obchodzi to zamknięciem panelu) |
+| M4 | ewentualne skalowanie wyniku do wyświetlania | Jaccard w mockach daje 11–25% |
