@@ -3,7 +3,11 @@ M5 — logika czatu i interakcji (bez streamlit -> testowalna pytestem).
 
 Publiczne API (kontrakt):
     send_message(storage, room_id, user_id, text) -> ChatMessage | None
-    room_title(storage, room_id) -> str
+    room_title(storage, room_id, *, viewer_id=None) -> str
+Prywatne rozmowy (DM):
+    dm_participants(room_id) -> tuple[str, str] | None
+    can_access_room(room_id, user_id) -> bool
+    list_conversations(storage, user_id) -> list[Conversation]
 Anty-spam i higiena tekstu:
     sanitize_text(text) -> str
     seconds_until_allowed(last_sent_at, now) -> float
@@ -25,9 +29,10 @@ from __future__ import annotations
 import re
 import string
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import timedelta
 
-from shared.models import Attendance, AttendanceStatus, ChatMessage
+from shared.models import Attendance, AttendanceStatus, ChatMessage, User, dm_room_id
 from shared.storage import Storage
 
 MAX_MESSAGE_LEN = 500
@@ -73,22 +78,72 @@ def seconds_until_allowed(
 
 
 def send_message(storage: Storage, room_id: str, user_id: str, text: str) -> ChatMessage | None:
-    """Czyści (sanitize_text) i zapisuje wiadomość. Pusta po czyszczeniu -> None (nic nie zapisujemy)."""
+    """Czyści (sanitize_text) i zapisuje wiadomość. None (nic nie zapisujemy), gdy po czyszczeniu
+    jest pusta albo nadawca nie ma dostępu do pokoju (cudzy DM)."""
     clean = sanitize_text(text)
-    if not clean:
+    if not clean or not can_access_room(room_id, user_id):
         return None
     return storage.post_message(room_id, user_id, clean)
 
 
-def room_title(storage: Storage, room_id: str) -> str:
+def room_title(storage: Storage, room_id: str, *, viewer_id: str | None = None) -> str:
+    """Tytuł pokoju do nagłówka. DM oglądany przez uczestnika (`viewer_id`) = imię rozmówcy."""
     kind, _, rest = room_id.partition(":")
     if kind == "event":
         event = storage.get_event(rest)
         return f"{event.meta.emoji} {event.title}" if event else "Czat wydarzenia"
     if kind == "dm":
-        names = [u.name for u in storage.get_users(rest.split(":")).values()]
-        return "💬 " + " & ".join(names)
+        ids = list(dm_participants(room_id) or ())
+        if viewer_id in ids and len(set(ids)) == 2:
+            ids.remove(viewer_id)
+        names = [u.name for u in storage.get_users(ids).values()]
+        return "💬 " + " & ".join(names) if names else "💬 Prywatna rozmowa"
     return room_id
+
+
+# --------------------------------------------------------------------------- #
+# Prywatne rozmowy (DM)
+# --------------------------------------------------------------------------- #
+
+@dataclass(frozen=True)
+class Conversation:
+    """Pozycja listy „Moje rozmowy”."""
+
+    room_id: str
+    other: User
+    last: ChatMessage
+
+
+def dm_participants(room_id: str) -> tuple[str, str] | None:
+    """('u_a', 'u_b') dla pokoju z dm_room_id(); None dla innych pokojów i źle zbudowanych ID."""
+    kind, _, rest = room_id.partition(":")
+    a, sep, b = rest.partition(":")
+    return (a, b) if kind == "dm" and sep and a and b else None
+
+
+def can_access_room(room_id: str, user_id: str) -> bool:
+    """Czat wydarzenia jest otwarty dla wszystkich; DM tylko dla jego dwóch uczestników."""
+    if not room_id.startswith("dm:"):
+        return True
+    participants = dm_participants(room_id)
+    return participants is not None and user_id in participants
+
+
+def list_conversations(storage: Storage, user_id: str) -> list[Conversation]:
+    """Moje DM-y z co najmniej jedną wiadomością, od najświeższej.
+
+    Storage nie ma listy pokojów, więc pytamy o ostatnią wiadomość w DM z każdą osobą
+    (zapytanie po indeksie room_id, ~kilkadziesiąt µs; przy kilkudziesięciu osobach to ~ms).
+    """
+    conversations = []
+    for other in storage.list_users():
+        if other.id == user_id:
+            continue
+        room_id = dm_room_id(user_id, other.id)
+        if last := storage.list_messages(room_id, limit=1):
+            conversations.append(Conversation(room_id, other, last[-1]))
+    conversations.sort(key=lambda c: c.last.created_at, reverse=True)
+    return conversations
 
 
 def escape_markdown(text: str) -> str:

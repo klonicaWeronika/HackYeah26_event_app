@@ -18,13 +18,14 @@ from collections.abc import Iterable
 import streamlit as st
 
 from m5_chat.service import (
-    BUFFER_LIMIT, MAX_MESSAGE_LEN, attendance_counts, css_string, escape_markdown, group_messages,
-    refresh_messages, room_title, safe_avatar_src, seconds_until_allowed, send_message, set_attendance,
+    BUFFER_LIMIT, MAX_MESSAGE_LEN, Conversation, attendance_counts, can_access_room, css_string, escape_markdown,
+    group_messages, list_conversations, refresh_messages, room_title, safe_avatar_src, seconds_until_allowed,
+    send_message, set_attendance,
 )
 from shared import state
 from shared.config import CHAT_POLL_SECONDS, FEATURES
 from shared.formatting import format_time
-from shared.models import AttendanceStatus, ChatMessage, Event, User
+from shared.models import AttendanceStatus, ChatMessage, Event, User, dm_room_id
 from shared.state import View
 from shared.storage import Storage
 
@@ -115,13 +116,17 @@ def _render_group(group: list[ChatMessage], author: User | None, *, can_open_pro
 
 
 def render_chat_room(storage: Storage, user: User, room_id: str, *, height: int = 520) -> None:
-    """Pełny widok czatu w środkowym obszarze (zamiast mapy)."""
+    """Pełny widok czatu w środkowym obszarze (zamiast mapy): czat wydarzenia albo prywatna rozmowa."""
     col_back, col_title = st.columns([1, 5], vertical_alignment="center")
     with col_back:
         st.button("← Mapa", on_click=state.go_to, args=(View.MAP,), key="m5_back")
+    if not can_access_room(room_id, user.id):
+        # Np. po „Zaloguj jako” z otwartym DM poprzedniej osoby — nie pokazujemy cudzej rozmowy.
+        col_title.warning("🔒 To prywatna rozmowa innych osób.")
+        return
     with col_title:
         # Tytuł eventu (scraper, formularz M2) i imiona w DM to dane z zewnątrz -> bez markdownu.
-        st.markdown(f"### {escape_markdown(room_title(storage, room_id))}")
+        st.markdown(f"### {escape_markdown(room_title(storage, room_id, viewer_id=user.id))}")
 
     buf_key, show_key = f"m5_buf_{room_id}", f"m5_show_{room_id}"
     # Ten kod NIE wykonuje się w tickach fragmentu, tylko przy pełnym rerunie (wejście do pokoju,
@@ -241,3 +246,45 @@ def _on_open_to_meet_change(
     storage: Storage, user_id: str, event_id: str, status: AttendanceStatus, open_key: str,
 ) -> None:
     set_attendance(storage, user_id, event_id, status, open_to_meet=st.session_state[open_key])
+
+
+# --------------------------------------------------------------------------- #
+# Prywatne rozmowy (DM) — włączane flagą FEATURES["dm_chat"] po stronie wywołujących (M1, M3)
+# --------------------------------------------------------------------------- #
+
+def open_dm(me_id: str, other_id: str) -> None:
+    """Callback przycisku „Napisz” (karta osoby M3, lista rozmów): otwiera prywatny czat z `other_id`.
+
+    Użycie: st.button("✉️ Napisz", key=..., on_click=open_dm, args=(me.id, other.id)).
+    Wołaj poza @st.fragment — zmiana widoku wymaga pełnego reruna.
+    """
+    if me_id != other_id:
+        state.go_to(View.CHAT, room_id=dm_room_id(me_id, other_id))
+
+
+def render_dm_list(storage: Storage, user: User, *, limit: int = 8) -> None:
+    """„Moje rozmowy”: prywatne czaty od najświeższej; klik otwiera rozmowę (open_dm)."""
+    conversations = list_conversations(storage, user.id)
+    if not conversations:
+        st.caption("Brak prywatnych rozmów — napisz do kogoś z listy „Pasujące osoby” 🙂")
+        return
+    current = state.chat_room_id() if state.current_view() is View.CHAT else None
+    for conv in conversations[:limit]:
+        st.button(
+            _conversation_label(conv, user.id), key=f"m5_dm_{conv.room_id}",
+            type="secondary" if conv.room_id == current else "tertiary",
+            on_click=open_dm, args=(user.id, conv.other.id),
+        )
+
+
+def _conversation_label(conv: Conversation, me_id: str) -> str:
+    """'**Kuba** · 18:02 — Ty: hej, będziesz…' (dane użytkowników bez markdownu)."""
+    first_line = " ".join(conv.last.text.splitlines()[0].split())
+    preview = first_line if len(first_line) <= 32 else first_line[:32] + "…"
+    if conv.last.user_id == me_id:
+        preview = f"Ty: {preview}"
+    return (
+        f"**{escape_markdown(conv.other.name)}** · {escape_markdown(format_time(conv.last.created_at))}"
+        f" — {escape_markdown(preview)}"
+    )
+
