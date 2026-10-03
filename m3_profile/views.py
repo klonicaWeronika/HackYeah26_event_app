@@ -15,13 +15,19 @@ import streamlit as st
 from m3_profile.avatar import AvatarError, avatar_from_upload  # re-eksport: publiczne API M3 (TASK_SPEC §3.2)
 from m3_profile.validation import BIO_MAX, NAME_MAX, TAGS_MAX, TAGS_MIN, validate_profile
 from shared import state
-from shared.config import FEATURES
+from shared.config import DEFAULT_USER_ID, FEATURES
 from shared.formatting import format_when
-from shared.models import INTEREST_TAGS, MatchResult, User
+from shared.models import INTEREST_TAGS, MatchResult, User, new_id
 from shared.storage import Storage
 from shared.state import View
 
 _AVATAR_COLORS = ["#E4572E", "#17BEBB", "#FFC914", "#2E282A", "#76B041", "#7E5BEF", "#F46197"]
+_MD_SPECIAL = set("\\`*_{}[]()#+-.!|<>~$")
+
+
+def _md_escape(text: str) -> str:
+    """Dane użytkownika w markdownie (st.toast/st.markdown bez HTML): bez formatowania i linków."""
+    return "".join(f"\\{c}" if c in _MD_SPECIAL else c for c in text)
 
 
 def avatar_html(user: User, size: int = 40) -> str:
@@ -47,24 +53,32 @@ def render_avatar(user: User, size: int = 40, caption: str | None = None) -> Non
 
 
 def render_user_switcher(storage: Storage, key: str = "m3_user_switch") -> None:
-    """'Zaloguj jako…' — w MVP nie ma haseł; wybór osoby z bazy."""
+    """'Zaloguj jako…' (w MVP bez haseł) + „➕ Nowy profil” (onboarding, M3-04)."""
+    _expire_onboarding_flag()
     users = storage.list_users()
     ids = [u.id for u in users]
     names = {u.id: u.name for u in users}
     current = state.current_user_id()
 
+    if ids and current not in ids:
+        # ?user= z linku nie istnieje (literówka, profil skasowany „Resetem demo”) -> fallback jak w app.py
+        fallback = DEFAULT_USER_ID if DEFAULT_USER_ID in ids else ids[0]
+        state.set_current_user(fallback)                    # poprawia też ?user= w URL
+        st.toast(f"Nie znaleziono profilu z linku — jesteś teraz: {_md_escape(names[fallback])}.")
+        current = fallback
+
     def _on_change() -> None:
         state.set_current_user(st.session_state[key])
         state.select_event(None)
+        _cancel_onboarding()
 
-    st.selectbox(
-        "Zaloguj jako",
-        ids,
-        index=ids.index(current) if current in ids else 0,
-        format_func=names.get,
-        key=key,
-        on_change=_on_change,
-    )
+    if ids:
+        # Synchronizacja PRZED utworzeniem widgetu: użytkownik mógł się zmienić poza przełącznikiem
+        # (onboarding, ?user= w URL). Bez `index=` — wartość pochodzi wyłącznie z session_state.
+        st.session_state[key] = current
+        st.selectbox("Zaloguj jako", ids, format_func=names.get, key=key, on_change=_on_change)
+    st.button("➕ Nowy profil", key=f"{key}_new", on_click=_start_onboarding, width="stretch",
+              help="Załóż profil dla nowej osoby (zdjęcie, imię, zainteresowania).")
 
 
 def render_user_card(user: User, match: MatchResult | None = None, *, key: str) -> None:
@@ -93,7 +107,7 @@ def render_user_card(user: User, match: MatchResult | None = None, *, key: str) 
 # Zdjęcie profilowe (M3-02): uploader POZA st.form + szkic w session_state
 # --------------------------------------------------------------------------- #
 
-_AVATAR_DRAFT = "m3_avatar_draft"     # {"user_id": str, "avatar_url": str | None} — niezapisana zmiana zdjęcia
+_AVATAR_DRAFT = "m3_avatar_draft"     # {"user_id", "avatar_url": str | None} — niezapisana zmiana zdjęcia
 _AVATAR_ERROR = "m3_avatar_error"     # {"user_id": str, "message": str} — komunikat AvatarError do st.error
 _AVATAR_NONCE = "m3_avatar_nonce"     # zmiana klucza = pusty uploader (wartości uploadera nie da się ustawić)
 _UPLOAD_TYPES = ["jpg", "jpeg", "png", "webp"]
@@ -201,7 +215,9 @@ def _validated_fields(key_id: str) -> tuple[dict, dict[str, str]]:
     """Czyta pola formularza z session_state i waliduje; błędy odkłada do pokazania przy polach."""
     ss = st.session_state
     clean, errors = validate_profile(
-        ss.get(_pe_key("name", key_id), ""), ss.get(_pe_key("bio", key_id), ""), ss.get(_pe_key("tags", key_id), []),
+        ss.get(_pe_key("name", key_id), ""),
+        ss.get(_pe_key("bio", key_id), ""),
+        ss.get(_pe_key("tags", key_id), []),
     )
     if errors:
         ss[_PE_ERRORS] = {"user_id": key_id, "errors": errors}
@@ -211,13 +227,14 @@ def _validated_fields(key_id: str) -> tuple[dict, dict[str, str]]:
 
 
 def _on_save_profile(storage: Storage, user_id: str) -> None:
-    """„Zapisz” (on_click): walidacja -> zapis -> toast + mapa w jednym rerunie. Błąd = zostajemy w edytorze."""
+    """„Zapisz” (on_click): walidacja -> zapis -> toast + mapa w jednym rerunie. Błąd = zostajemy."""
     clean, errors = _validated_fields(user_id)
     if errors:
         return
     user = storage.get_user(user_id)
     if user is None:                                       # np. „Reset danych demo” w innej karcie
-        st.session_state[_PE_ERRORS] = {"user_id": user_id, "errors": {"name": "Ten profil już nie istnieje."}}
+        errors = {"name": "Ten profil już nie istnieje."}
+        st.session_state[_PE_ERRORS] = {"user_id": user_id, "errors": errors}
         return
     storage.upsert_user(user.copy_with(**clean, avatar_url=_pending_avatar_url(user)))
     _discard_avatar_draft()
@@ -232,7 +249,13 @@ def _leave_editor() -> None:
 
 
 def render_profile_editor(storage: Storage, user: User) -> None:
-    """Edycja własnego profilu: zdjęcie (upload -> data URI), imię, bio, zainteresowania."""
+    """Edycja własnego profilu: zdjęcie (upload -> data URI), imię, bio, zainteresowania.
+
+    Po „➕ Nowy profil” (flaga `m3_onboarding`) ten sam widok pokazuje onboarding — app.py bez zmian.
+    """
+    if st.session_state.get(_ONBOARDING):
+        render_onboarding(storage)
+        return
     st.subheader("✏️ Twój profil")
     _render_avatar_picker(user)
 
@@ -241,6 +264,86 @@ def render_profile_editor(storage: Storage, user: User) -> None:
         st.form_submit_button("Zapisz", type="primary", on_click=_on_save_profile, args=(storage, user.id))
 
     st.button("← Wróć do mapy", key="m3_back_from_editor", on_click=_leave_editor)
+
+
+# --------------------------------------------------------------------------- #
+# Onboarding (M3-04): nowa osoba -> profil w 30 s -> ?user= w URL
+# --------------------------------------------------------------------------- #
+
+_ONBOARDING = "m3_onboarding"                  # True = w widoku PROFILE_EDIT pokazujemy onboarding
+_ONBOARDING_CREATED = "m3_onboarding_created"  # id utworzonej osoby (wynik render_onboarding po zapisie)
+_NEW_KEY = "new"                               # sufiks kluczy formularza (m3_pe_name_new, …) i szkicu zdjęcia
+
+
+def _start_onboarding() -> None:
+    _discard_avatar_draft()
+    st.session_state.pop(_PE_ERRORS, None)
+    st.session_state.pop(_ONBOARDING_CREATED, None)
+    st.session_state[_ONBOARDING] = True
+    state.go_to(View.PROFILE_EDIT)
+
+
+def _cancel_onboarding() -> None:
+    if st.session_state.pop(_ONBOARDING, None):
+        _discard_avatar_draft()
+        st.session_state.pop(_PE_ERRORS, None)
+
+
+def _expire_onboarding_flag() -> None:
+    """Wyjście z onboardingu „bokiem” (np. przycisk czatu) -> następne „Edytuj profil” to zwykła edycja."""
+    if st.session_state.get(_ONBOARDING) and state.current_view() is not View.PROFILE_EDIT:
+        _cancel_onboarding()
+
+
+def _leave_onboarding() -> None:
+    _cancel_onboarding()
+    state.go_to(View.MAP)
+
+
+def _on_create_profile(storage: Storage) -> None:
+    """„Utwórz profil” (on_click): walidacja jak w edycji -> nowy User -> zalogowanie (+ ?user=) -> mapa."""
+    clean, errors = _validated_fields(_NEW_KEY)
+    if errors:
+        return
+    user = User(id=new_id("u"), **clean, avatar_url=_pending_avatar_url(_onboarding_placeholder()))
+    storage.upsert_user(user)
+    state.set_current_user(user.id)            # ?user=<id> w URL -> profil przetrwa odświeżenie strony
+    _cancel_onboarding()
+    st.session_state[_ONBOARDING_CREATED] = user.id
+    # Wybrany event zostaje otwarty: nowa osoba od razu klika „Idę!” i widzi pasujące osoby.
+    st.toast(f"Witaj, {_md_escape(user.name)}! 🎉 Kliknij pinezkę, a potem „Idę!”, "
+             "żeby zobaczyć pasujące osoby.")
+    state.go_to(View.MAP)
+
+
+def _onboarding_placeholder() -> User:
+    """Tymczasowa „osoba” do podglądu awatara i szkicu zdjęcia przed utworzeniem profilu."""
+    return User(id=_NEW_KEY, name="?")
+
+
+def render_onboarding(storage: Storage) -> User | None:
+    """Ekran powitalny „Utwórz profil”.
+
+    Zwraca None, dopóki formularz jest na ekranie. Profil powstaje w callbacku „Utwórz profil”
+    (osoba zostaje zalogowana, a widok wraca do mapy); jeśli ktoś wywoła tę funkcję w przebiegu
+    tuż po zapisie, dostanie utworzonego `User` (jednorazowo) i nic nie zostanie narysowane.
+    """
+    created_id = st.session_state.pop(_ONBOARDING_CREATED, None)
+    if created_id:
+        return storage.get_user(created_id)
+
+    st.subheader("👋 Cześć! Załóż profil w 30 sekund")
+    st.caption(
+        "1️⃣ Zdjęcie, imię i 3 zainteresowania → 2️⃣ „Idę!” przy wydarzeniu na mapie "
+        "→ 3️⃣ zobaczysz osoby, które też idą i lubią to co Ty."
+    )
+    _render_avatar_picker(_onboarding_placeholder())
+    with st.form("m3_onboarding_form"):
+        _render_profile_fields(storage, key_id=_NEW_KEY, name="", bio="", tags=[])
+        st.form_submit_button("Utwórz profil", type="primary", on_click=_on_create_profile, args=(storage,))
+    st.button("← Wróć", key="m3_back_from_onboarding", on_click=_leave_onboarding,
+              help="Wróć do mapy bez zakładania profilu.")
+    return None
 
 
 def render_profile_view(storage: Storage, user: User) -> None:
