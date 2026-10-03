@@ -1,0 +1,1033 @@
+<!-- fixture: https://karnet.krakowculture.pl/wydarzenia?Item_page=5 (pobrano 2026-10-03, skrypty/style usunięte) -->
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<base href="/"/>
+<link href="/assets/c8d44edd/listview/styles.css" rel="stylesheet" type="text/css"/>
+<link href="css/bootstrap.css" rel="stylesheet" type="text/css"/>
+<link href="css/owl.carousel.css" rel="stylesheet" type="text/css"/>
+<link href="css/daterangepicker.css" rel="stylesheet" type="text/css"/>
+<link href="css/main.css?v=6.0" rel="stylesheet" type="text/css"/>
+<link href="css/extra.css" rel="stylesheet" type="text/css"/>
+<link href="css/leaflet.css" rel="stylesheet" type="text/css"/>
+<link href="css/Control.FullScreen.css" rel="stylesheet" type="text/css"/>
+<link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700,300&amp;subset=latin,latin-ext" rel="stylesheet" type="text/css"/>
+<link href="css/lightbox.css" rel="stylesheet" type="text/css"/>
+<title>Wydarzenia - Karnet Kraków</title>
+<meta content="Festiwale, koncerty, spektakle, wystawy, wydarzenia literackie, filmowe i plenerowe. Sprawdź, co dzieje się w Krakowie!" name="description"/>
+<meta content="Wydarzenia - Karnet Kraków" property="og:title"/>
+<meta content="Festiwale, koncerty, spektakle, wystawy, wydarzenia literackie, filmowe i plenerowe. Sprawdź, co dzieje się w Krakowie!" property="og:description"/>
+<meta content="http://media.krakow.travel/photos/55829/l.jpg" property="og:image"/>
+<meta content="width=device-width, maximum-scale=1, initial-scale=1.0" name="viewport"/>
+<meta charset="utf-8"/>
+<meta content="IE=11" http-equiv="X-UA-Compatible"/>
+<link href="img/favicon.png" rel="shortcut icon" type="image/png"/>
+</head>
+<body class="">
+<div class="alt-header" style="background-image:url('/img/header/wydarzenia.jpg')">
+<header>
+<div class="container container-header">
+<a class="karnet-logo" href="" id="siteLogo"></a>
+<div class="bar bar-search">
+<span class="icon-search"></span>
+<form action="/site/search">
+<input id="top-search" name="query" placeholder="Szukane słowo..." type="text"/>
+</form>
+</div>
+<a class="bar bar-facebook" href="https://www.facebook.com/karnet.krakowculture"><span class="icon-social-facebook"></span></a>
+<a class="bar bar-lang" href="/en/wydarzenia?Item_page=5">
+<span>EN</span>
+</a>
+</div>
+</header>
+</div>
+<div class="subpage-wrapper">
+<nav class="main container">
+<div class="nav-btn"><span class="icon-menu"></span></div>
+<ul id="yw2">
+<li class="nav-item"><a href=""><span class="icon-home"></span><span class="hide">Start</span></a></li>
+<li class="active nav-item"><a href="/wydarzenia"><span>Wydarzenia</span></a></li>
+<li class="nav-item"><a href="/karnet-poleca"><span>Polecamy</span></a></li>
+<li class="nav-item"><a href="/magazyn-karnet"><span>Magazyny</span></a></li>
+<li class="nav-item"><a href="/mapa"><span>Mapa</span></a></li>
+<li class="nav-item"><a href="/kalendarium"><span>Kalendarium roczne</span></a></li>
+<li class="nav-item"><a href="/artykuly"><span>Artykuły</span></a></li>
+<li class="nav-item"><a href="/moje-wydarzenia"><span>Moje wydarzenia</span></a></li>
+</ul>
+</nav>
+<div class="container whiteBg">
+<div class="spacer-medium"></div>
+<div class="breadcrumbs">
+<ul class="breadcrumbs-list">
+<li><a href="/wydarzenia?Item_page=5">Start</a></li><li><a href="/wydarzenia">Wydarzenia</a></li><li>Wszystkie</li></ul>
+</div>
+</div>
+<div class="container whiteBg">
+<form action="/wydarzenia" class="search" id="search-form">
+<section class="search alternative">
+<div class="spacer"></div>
+<div class="row">
+<div class="search-col">
+<h4>Czego szukasz?</h4>
+<div class="input write">
+<span class="icon-search-form icon"></span>
+<input id="query" name="query" placeholder="Wpisz szukane słowo" type="text"/> </div>
+</div>
+<div class="search-col">
+<h4>Kiedy?</h4>
+<div class="input datepicker-input">
+<span class="icon-date-general icon"></span>
+<div class="datepicker-label datepickerLabel datePickerInput" id="dpdiv">
+<span data-default="Dowolnie"></span>
+</div>
+<input id="date_start" name="date_start" type="hidden"/> <input id="date_end" name="date_end" type="hidden"/> <div class="action">zmień</div>
+</div>
+</div>
+</div>
+<div class="row">
+<div class="search-col">
+<h4>Gdzie?</h4>
+<div class="input where">
+<div class="select-label">
+<div class="label" style="padding: 0;">
+<span class="icon-location icon"></span>
+<div class="select" style="width: calc(100% - 60px);">
+<select id="choosenArea" name="choosenArea">
+<option value="">Kraków i okolice</option>
+<option value="city">Kraków</option>
+<option value="sorroundings">W okolicy</option>
+<option value="custom">Wybrana lokalizacja</option>
+</select> </div>
+</div>
+</div>
+<div class="select" style="border-left: 1px solid #dadada;">
+<select id="radius" name="radius">
+<option value="1000">+1km</option>
+<option value="2000">+2km</option>
+<option value="3000">+3km</option>
+<option value="4000">+4km</option>
+<option value="5000">+5km</option>
+<option value="15000">+15km</option>
+<option value="30000">+30km</option>
+<option value="50000">+50km</option>
+</select> </div>
+</div>
+</div>
+<div class="search-col no-header">
+<div class="input">
+<button type="submit">Szukaj</button>
+</div>
+</div>
+<div class="hidden">
+<input id="category_id" name="category_id" type="hidden"/> <input id="order" name="order" type="hidden"/> <input id="latitude" name="latitude" type="hidden"/> <input id="longitude" name="longitude" type="hidden"/> <input id="location_name" name="location_name" type="hidden"/> <div id="search-params"></div>
+</div>
+</div>
+</section>
+</form>
+<div class="popup">
+<div class="popup-container">
+<div class="close icon-menu-close"></div>
+<h2 class="section-header">Gdzie?</h2>
+<form action="" class="search" id="location-popup-form">
+<div class="input">
+<div class="select-label">
+<span class="icon-location icon"></span>
+<input id="localization-input" placeholder="Wpisz adres" type="text"/>
+</div>
+</div>
+<div class="spacer"></div>
+<div class="map-container">
+<div class="google-map" data-latitude="50.06" data-longitude="19.94" data-skip="1" id="picker-map">
+</div>
+<img class="location-pointer" src="img/marker/default.png"/>
+</div>
+<div class="spacer"></div>
+<div class="controls">
+<button class="alternative">
+<span class="">zatwierdź</span>
+</button>
+</div>
+</form>
+</div>
+</div>
+<div class="overlay"></div>
+<div class="spacer"></div>
+</div>
+<div class="spacer-mini"></div>
+<div class="container">
+<div class="clearfix">
+<div class="sidebar equalCol">
+<div class="whiteBg desktopFilters">
+<div class="sidebar-container sidebarContainer">
+<h2 class="section-header visible-md-block visible-lg-block">Kategorie</h2>
+<div class="clearfix sidebar-nav-container">
+<ul class="sidebar-nav categories">
+<li class="category active">
+<a href="/wydarzenia">
+<span class="icon"><img alt="Wydarzenia" src="/img/category/event.svg"/></span>
+<span class="label"><span class="align-middle">Wszystkie</span></span>
+</a>
+</li>
+<li class="category">
+<a data-id="30" href="/wydarzenia/festiwale,30?Item_page=5">
+<span class="icon"><img alt="" src="img/category/30.svg"/></span>
+<span class="label"><span class="align-middle">Festiwale</span></span>
+</a>
+</li>
+<li class="category">
+<a data-id="21" href="/wydarzenia/koncerty,21?Item_page=5">
+<span class="icon"><img alt="" src="img/category/21.svg"/></span>
+<span class="label"><span class="align-middle">Koncerty</span></span>
+</a>
+</li>
+<li class="category">
+<a data-id="32" href="/wydarzenia/spektakle,32?Item_page=5">
+<span class="icon"><img alt="" src="img/category/32.svg"/></span>
+<span class="label"><span class="align-middle">Spektakle</span></span>
+</a>
+</li>
+<li class="category">
+<a data-id="25" href="/wydarzenia/literatura,25?Item_page=5">
+<span class="icon"><img alt="" src="img/category/25.svg"/></span>
+<span class="label"><span class="align-middle">Literatura</span></span>
+</a>
+</li>
+<li class="category">
+<a data-id="34" href="/wydarzenia/film,34?Item_page=5">
+<span class="icon"><img alt="" src="img/category/34.svg"/></span>
+<span class="label"><span class="align-middle">Film</span></span>
+</a>
+</li>
+<li class="category">
+<a data-id="35" href="/wydarzenia/wystawy,35?Item_page=5">
+<span class="icon"><img alt="" src="img/category/35.svg"/></span>
+<span class="label"><span class="align-middle">Wystawy</span></span>
+</a>
+</li>
+<li class="category">
+<a data-id="192" href="/wydarzenia/w-gminach-metropolii,192?Item_page=5">
+<span class="icon"><img alt="" src="img/category/event.svg"/></span>
+<span class="label"><span class="align-middle">W gminach Metropolii</span></span>
+</a>
+</li>
+<li class="category">
+<a data-id="36" href="/wydarzenia/inne,36?Item_page=5">
+<span class="icon"><img alt="" src="img/category/36.svg"/></span>
+<span class="label"><span class="align-middle">Inne</span></span>
+</a>
+</li>
+</ul>
+</div>
+<div class="spacer"></div>
+<div class="filters">
+<h2 class="section-header">Filtry</h2>
+<div class="checkbox">
+<input id="Param_p_8" name="Param[p_8]" type="checkbox" value="1"/> <label for="Param_p_8">wydarzenie plenerowe</label>
+</div>
+<div class="checkbox">
+<input id="Param_p_12" name="Param[p_12]" type="checkbox" value="1"/> <label for="Param_p_12">wstęp wolny</label>
+</div>
+<div class="checkbox">
+<input id="Param_p_41" name="Param[p_41]" type="checkbox" value="1"/> <label for="Param_p_41">dostępne dla niepełnosprawnych</label>
+</div>
+<div class="checkbox">
+<input id="Param_p_1" name="Param[p_1]" type="checkbox" value="1"/> <label for="Param_p_1">dla dzieci</label>
+</div>
+<div class="checkbox">
+<input id="Param_p_6" name="Param[p_6]" type="checkbox" value="1"/> <label for="Param_p_6">dla seniorów</label>
+</div>
+<div class="checkbox">
+<input id="Param_p_24" name="Param[p_24]" type="checkbox" value="1"/> <label for="Param_p_24">dla rodzin</label>
+</div>
+</div> </div>
+</div>
+</div>
+<div class="event-list-wrapper equalCol">
+<div class="whiteBg">
+<h1 class="section-header">
+					Wszystkie					<span id="searchFilters"></span>
+<span id="totalEvents">(864)</span>
+</h1>
+<div class="sort-list clearfix">
+<div class="sort-type col-xs-12 col-md-6">
+<label for="sorter">Sortuj: </label>
+<div class="select">
+<select id="select_order" name="select_order">
+<option selected="selected" value="">domyślnie</option>
+<option value="name">nazwa rosnąco</option>
+<option value="name.desc">nazwa malejąco</option>
+<option value="event">data rosnąco</option>
+<option value="event.desc">data malejąco</option>
+</select> </div>
+</div>
+<div class="view-type col-xs-12 col-md-6">
+<div class="mobile-filters mobileFilters">
+<div class="filter-button">filtrowanie<span class="icon-filter"></span></div>
+</div>
+<label for="">Widok: </label>
+<div class="view-icon active" data-type="list-view">
+<span class="icon-list-view"></span>
+</div>
+<div class="view-icon" data-type="grid-view">
+<span class="icon-grid-view"></span>
+</div>
+</div>
+</div>
+<div class="list-container" id="yw0">
+<div class="event-list list-view">
+<div class="event-item" data-c="img/marker/21.png" data-id="63985" data-latitude="50.0847411" data-longitude="19.9966336" data-name="Hallas, Earth Tongue: Panorama Fall w Kwadracie">
+<div>
+<a class="event-image" href="/63985-krakow-hallas-earth-tongue-panorama-fall-w-kwadracie">
+<img alt="Hallas, Earth Tongue: Panorama Fall w Kwadracie" src="http://media.krakow.travel/photos/77714/m.jpg" style="object-position: center center"/> <div class="event-icon" style="background-image: url('img/category/21.svg')"></div>
+</a>
+<a class="event-content" href="/63985-krakow-hallas-earth-tongue-panorama-fall-w-kwadracie">
+<h3 class="event-title">
+				Hallas, Earth Tongue: Panorama Fall w Kwadracie			</h3>
+<span class="event-type">Muzyka rozrywkowa</span>
+<p class="event-text">
+				 Jak szybko odpłynąć i oderwać się od codzienności i realnego świata? Posłuchajcie ostatniej płyty  Hällas , a najlepiej zobaczcie zespół na żywo -  3 października  w klubie Kwadrat w...			</p>
+<p class="event-location">
+<span class="icon-location"></span>
+					Kwadrat, ul. Skarżyńskiego 1				</p>
+</a>
+<div class="event-controls">
+<div class="event-add" data-title="Dodano Hallas, Earth Tongue: Panorama Fall w Kwadracie do sekcji Moje Wydarzenia" data-title-remove="Usunięto z sekcji Moje Wydarzenia" data-url="/guide/toggle/63985">
+<span class="front icon-menu-close"></span>
+<span class="hover icon-menu-close"></span>
+</div>
+<a class="event-date" href="/63985-krakow-hallas-earth-tongue-panorama-fall-w-kwadracie">
+<span>03.10.2026, 20:00</span>
+</a>
+<a class="link pull-right" href="/63985-krakow-hallas-earth-tongue-panorama-fall-w-kwadracie">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</a>
+</div>
+</div>
+<div class="hidden">
+<a class="map-event-element" data-category="img/marker/21.png" data-id="63985" data-latitude="50.0847411" data-longitude="19.9966336" href="/63985-krakow-hallas-earth-tongue-panorama-fall-w-kwadracie" id="map-item-63985">
+<div class="image">
+<span class="icon"><img alt="" src="/img/movie-icon.png"/></span>
+<img alt="Hallas, Earth Tongue: Panorama Fall w Kwadracie" src="http://media.krakow.travel/photos/77714/s.jpg"/> </div>
+<div class="content">
+<div class="content-text">
+<h2>Hallas, Earth Tongue: Panorama Fall w Kwadracie</h2>
+</div>
+<div class="element-footer">
+<div class="data">
+<span class="vert-align-helper">03.10.2026, 20:00</span>
+</div>
+<div class="link">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</div>
+</div>
+</div>
+</a> </div>
+</div>
+<div class="event-item" data-c="img/marker/21.png" data-id="64257" data-latitude="50.0680296" data-longitude="19.905192" data-name="XIII. Stoleti w Zaścianku">
+<div>
+<a class="event-image" href="/64257-krakow-xiii-stoleti-w-zascianku">
+<img alt="XIII. Stoleti w Zaścianku" src="http://media.krakow.travel/photos/78003/m.jpg" style="object-position: 0% 0%"/> <div class="event-icon" style="background-image: url('img/category/21.svg')"></div>
+</a>
+<a class="event-content" href="/64257-krakow-xiii-stoleti-w-zascianku">
+<h3 class="event-title">
+				XIII. Stoleti w Zaścianku			</h3>
+<span class="event-type">Muzyka rozrywkowa</span>
+<p class="event-text">
+				 Czeska gothicrockowa formacja  XIII. STOLETÍ  powraca do Klubu Zaścianek! Posłuchaj na żywo ich mrocznych, opartych na punkowych i gotyckich korzeniach brzmień już  3 października  w...			</p>
+<p class="event-location">
+<span class="icon-location"></span>
+					Zaścianek, ul. Rostafińskiego 4				</p>
+</a>
+<div class="event-controls">
+<div class="tooltip in" data-type="list">
+<h5 class="tooltip-head">
+		Moje wydarzenia	</h5>
+<p class="tooltip-text">
+		Dodaj ulubione wydarzenia do sekcji moje wydarzenia, aby zawsze mieć je pod ręką.	</p>
+<div class="tooltip-close">
+<span class="icon-menu-close"></span>
+</div>
+</div>
+<div class="event-add" data-title="Dodano XIII. Stoleti w Zaścianku do sekcji Moje Wydarzenia" data-title-remove="Usunięto z sekcji Moje Wydarzenia" data-url="/guide/toggle/64257">
+<span class="front icon-menu-close"></span>
+<span class="hover icon-menu-close"></span>
+</div>
+<a class="event-date" href="/64257-krakow-xiii-stoleti-w-zascianku">
+<span>03.10.2026, 20:00</span>
+</a>
+<a class="link pull-right" href="/64257-krakow-xiii-stoleti-w-zascianku">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</a>
+</div>
+</div>
+<div class="hidden">
+<a class="map-event-element" data-category="img/marker/21.png" data-id="64257" data-latitude="50.0680296" data-longitude="19.905192" href="/64257-krakow-xiii-stoleti-w-zascianku" id="map-item-64257">
+<div class="image">
+<span class="icon"><img alt="" src="/img/movie-icon.png"/></span>
+<img alt="XIII. Stoleti w Zaścianku" src="http://media.krakow.travel/photos/78003/s.jpg"/> </div>
+<div class="content">
+<div class="content-text">
+<h2>XIII. Stoleti w Zaścianku</h2>
+</div>
+<div class="element-footer">
+<div class="data">
+<span class="vert-align-helper">03.10.2026, 20:00</span>
+</div>
+<div class="link">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</div>
+</div>
+</div>
+</a> </div>
+</div>
+<div class="event-item" data-c="img/marker/21.png" data-id="64519" data-latitude="50.06805" data-longitude="19.9081476" data-name="SBB (Skrzek, Anthimos, Piotrowski) w Studio">
+<div>
+<a class="event-image" href="/64519-krakow-sbb-skrzek-anthimos-piotrowski-w-studio">
+<img alt="SBB (Skrzek, Anthimos, Piotrowski) w Studio" src="http://media.krakow.travel/photos/78320/m.jpg" style="object-position: 25% 0%"/> <div class="event-icon" style="background-image: url('img/category/21.svg')"></div>
+</a>
+<a class="event-content" href="/64519-krakow-sbb-skrzek-anthimos-piotrowski-w-studio">
+<h3 class="event-title">
+				SBB (Skrzek, Anthimos, Piotrowski) w Studio			</h3>
+<span class="event-type">Muzyka rozrywkowa</span>
+<p class="event-text">
+				 Legendarne trio  SBB  powraca na scenę Klubu Studio! Już  3 października  zapraszamy na wieczór z absolutnymi pionierami i architektami polskiego rocka progresywnego w ich najsłynniejszym,...			</p>
+<p class="event-location">
+<span class="icon-location"></span>
+					Klub Studio, ul. Budryka 4				</p>
+</a>
+<div class="event-controls">
+<div class="event-add" data-title="Dodano SBB (Skrzek, Anthimos, Piotrowski) w Studio do sekcji Moje Wydarzenia" data-title-remove="Usunięto z sekcji Moje Wydarzenia" data-url="/guide/toggle/64519">
+<span class="front icon-menu-close"></span>
+<span class="hover icon-menu-close"></span>
+</div>
+<a class="event-date" href="/64519-krakow-sbb-skrzek-anthimos-piotrowski-w-studio">
+<span>03.10.2026, 20:00</span>
+</a>
+<a class="link pull-right" href="/64519-krakow-sbb-skrzek-anthimos-piotrowski-w-studio">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</a>
+</div>
+</div>
+<div class="hidden">
+<a class="map-event-element" data-category="img/marker/21.png" data-id="64519" data-latitude="50.06805" data-longitude="19.9081476" href="/64519-krakow-sbb-skrzek-anthimos-piotrowski-w-studio" id="map-item-64519">
+<div class="image">
+<span class="icon"><img alt="" src="/img/movie-icon.png"/></span>
+<img alt="SBB (Skrzek, Anthimos, Piotrowski) w Studio" src="http://media.krakow.travel/photos/78320/s.jpg"/> </div>
+<div class="content">
+<div class="content-text">
+<h2>SBB (Skrzek, Anthimos, Piotrowski) w Studio</h2>
+</div>
+<div class="element-footer">
+<div class="data">
+<span class="vert-align-helper">03.10.2026, 20:00</span>
+</div>
+<div class="link">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</div>
+</div>
+</div>
+</a> </div>
+</div>
+<div class="event-item" data-c="img/marker/21.png" data-id="64691" data-latitude="50.061114" data-longitude="19.9416157" data-name="Kraków Shoefest 7">
+<div>
+<a class="event-image" href="/64691-krakow-krakow-shoefest-7">
+<img alt="Kraków Shoefest 7" src="http://media.krakow.travel/photos/78519/m.jpg" style="object-position: center center"/> <div class="event-icon" style="background-image: url('img/category/21.svg')"></div>
+</a>
+<a class="event-content" href="/64691-krakow-krakow-shoefest-7">
+<h3 class="event-title">
+				Kraków Shoefest 7			</h3>
+<span class="event-type">Muzyka rozrywkowa</span>
+<p class="event-text">
+				 Front Row Heroes, klub Re i Shoefest Kraków zapraszają na siódmą edycję szugejzowego festiwalu przy krakowskim Rynku. Formuła jest już znana – dwa dni muzyki, sześć...			</p>
+<p class="event-location">
+<span class="icon-location"></span>
+					Klub RE, ul. św. Krzyża 4				</p>
+</a>
+<div class="event-controls">
+<div class="event-add" data-title="Dodano Kraków Shoefest 7 do sekcji Moje Wydarzenia" data-title-remove="Usunięto z sekcji Moje Wydarzenia" data-url="/guide/toggle/64691">
+<span class="front icon-menu-close"></span>
+<span class="hover icon-menu-close"></span>
+</div>
+<a class="event-date" href="/64691-krakow-krakow-shoefest-7">
+<span>03.10.2026, 20:00</span>
+</a>
+<a class="link pull-right" href="/64691-krakow-krakow-shoefest-7">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</a>
+</div>
+</div>
+<div class="hidden">
+<a class="map-event-element" data-category="img/marker/21.png" data-id="64691" data-latitude="50.061114" data-longitude="19.9416157" href="/64691-krakow-krakow-shoefest-7" id="map-item-64691">
+<div class="image">
+<span class="icon"><img alt="" src="/img/movie-icon.png"/></span>
+<img alt="Kraków Shoefest 7" src="http://media.krakow.travel/photos/78519/s.jpg"/> </div>
+<div class="content">
+<div class="content-text">
+<h2>Kraków Shoefest 7</h2>
+</div>
+<div class="element-footer">
+<div class="data">
+<span class="vert-align-helper">03.10.2026, 20:00</span>
+</div>
+<div class="link">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</div>
+</div>
+</div>
+</a> </div>
+</div>
+<div class="event-item" data-c="img/marker/21.png" data-id="64915" data-latitude="50.0452201" data-longitude="19.9362259" data-name="A Story of Polish Jazz w Forum Horyzonty">
+<div>
+<a class="event-image" href="/64915-krakow-a-story-of-polish-jazz-w-forum-horyzonty">
+<img alt="A Story of Polish Jazz w Forum Horyzonty" src="http://media.krakow.travel/photos/78763/m.jpg" style="object-position: 0% 0%"/> <div class="event-icon" style="background-image: url('img/category/21.svg')"></div>
+</a>
+<a class="event-content" href="/64915-krakow-a-story-of-polish-jazz-w-forum-horyzonty">
+<h3 class="event-title">
+				A Story of Polish Jazz w Forum Horyzonty			</h3>
+<span class="event-type">Muzyka rozrywkowa</span>
+<p class="event-text">
+				 Wyjątkowa podróż przez historię polskiego jazzu. Na scenie artyści, którzy tę historię tworzyli i wciąż ją rozwijają. 
+ Wystąpią: 
+ Krzesimir Dębski 
+ Henryk Miśkiewicz 
+ Adam...			</p>
+<p class="event-location">
+<span class="icon-location"></span>
+					Forum Horyzonty, ul. Konopnickiej 28				</p>
+</a>
+<div class="event-controls">
+<div class="event-add" data-title="Dodano A Story of Polish Jazz w Forum Horyzonty do sekcji Moje Wydarzenia" data-title-remove="Usunięto z sekcji Moje Wydarzenia" data-url="/guide/toggle/64915">
+<span class="front icon-menu-close"></span>
+<span class="hover icon-menu-close"></span>
+</div>
+<a class="event-date" href="/64915-krakow-a-story-of-polish-jazz-w-forum-horyzonty">
+<span>03.10.2026, 20:00</span>
+</a>
+<a class="link pull-right" href="/64915-krakow-a-story-of-polish-jazz-w-forum-horyzonty">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</a>
+</div>
+</div>
+<div class="hidden">
+<a class="map-event-element" data-category="img/marker/21.png" data-id="64915" data-latitude="50.0452201" data-longitude="19.9362259" href="/64915-krakow-a-story-of-polish-jazz-w-forum-horyzonty" id="map-item-64915">
+<div class="image">
+<span class="icon"><img alt="" src="/img/movie-icon.png"/></span>
+<img alt="A Story of Polish Jazz w Forum Horyzonty" src="http://media.krakow.travel/photos/78763/s.jpg"/> </div>
+<div class="content">
+<div class="content-text">
+<h2>A Story of Polish Jazz w Forum Horyzonty</h2>
+</div>
+<div class="element-footer">
+<div class="data">
+<span class="vert-align-helper">03.10.2026, 20:00</span>
+</div>
+<div class="link">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</div>
+</div>
+</div>
+</a> </div>
+</div>
+<div class="event-item" data-c="img/marker/34.png" data-id="64992" data-latitude="50.0616109" data-longitude="19.9356864" data-name="Digger. Pokazy przedpremierowe">
+<div>
+<a class="event-image" href="/64992-krakow-digger-pokazy-przedpremierowe">
+<img alt="Digger. Pokazy przedpremierowe" src="http://media.krakow.travel/photos/78842/m.jpg" style="object-position: center center"/> <div class="event-icon" style="background-image: url('img/category/34.svg')"></div>
+</a>
+<a class="event-content" href="/64992-krakow-digger-pokazy-przedpremierowe">
+<h3 class="event-title">
+				Digger. Pokazy przedpremierowe			</h3>
+<span class="event-type">Pokazy filmowe</span>
+<p class="event-text">
+				   Digger    to niezwykle aktualna satyra na możnych tego świata, którzy mogą doprowadzić do jego upadku. Film Alejandro G. Iñárritu z zaskakującą, porywającą rolą Toma...			</p>
+<p class="event-location">
+<span class="icon-location"></span>
+					Kino Pod Baranami, Rynek Główny 27				</p>
+</a>
+<div class="event-controls">
+<div class="event-add" data-title="Dodano Digger. Pokazy przedpremierowe do sekcji Moje Wydarzenia" data-title-remove="Usunięto z sekcji Moje Wydarzenia" data-url="/guide/toggle/64992">
+<span class="front icon-menu-close"></span>
+<span class="hover icon-menu-close"></span>
+</div>
+<a class="event-date" href="/64992-krakow-digger-pokazy-przedpremierowe">
+<span>03.10.2026, 20:45</span>
+</a>
+<a class="link pull-right" href="/64992-krakow-digger-pokazy-przedpremierowe">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</a>
+</div>
+</div>
+<div class="hidden">
+<a class="map-event-element" data-category="img/marker/34.png" data-id="64992" data-latitude="50.0616109" data-longitude="19.9356864" href="/64992-krakow-digger-pokazy-przedpremierowe" id="map-item-64992">
+<div class="image">
+<span class="icon"><img alt="" src="/img/movie-icon.png"/></span>
+<img alt="Digger. Pokazy przedpremierowe" src="http://media.krakow.travel/photos/78842/s.jpg"/> </div>
+<div class="content">
+<div class="content-text">
+<h2>Digger. Pokazy przedpremierowe</h2>
+</div>
+<div class="element-footer">
+<div class="data">
+<span class="vert-align-helper">03.10.2026, 20:45</span>
+</div>
+<div class="link">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</div>
+</div>
+</div>
+</a> </div>
+</div>
+<div class="event-item" data-c="img/marker/21.png" data-id="65090" data-latitude="50.0639596" data-longitude="19.937964400000055" data-name="Digital Riot w Chicago Bar">
+<div>
+<a class="event-image" href="/65090-krakow-digital-riot-w-chicago-bar">
+<img alt="Digital Riot w Chicago Bar" src="http://media.krakow.travel/photos/78948/m.jpg" style="object-position: center center"/> <div class="event-icon" style="background-image: url('img/category/21.svg')"></div>
+</a>
+<a class="event-content" href="/65090-krakow-digital-riot-w-chicago-bar">
+<h3 class="event-title">
+				Digital Riot w Chicago Bar			</h3>
+<span class="event-type">Muzyka klubowa</span>
+<p class="event-text">
+				 TOXIK TWINZ &amp; Chicago Bar zapraszają na: 
+  DIGITAL RIOT  dark-harsh electro | ebm | tbm | aggrotech | electro-industrial | futurepop | synthpop | synthwave | darkwave | post-punk | gothic rock...			</p>
+<p class="event-location">
+<span class="icon-location"></span>
+					Chicago Bar, ul. Sławkowska 11				</p>
+</a>
+<div class="event-controls">
+<div class="event-add" data-title="Dodano Digital Riot w Chicago Bar do sekcji Moje Wydarzenia" data-title-remove="Usunięto z sekcji Moje Wydarzenia" data-url="/guide/toggle/65090">
+<span class="front icon-menu-close"></span>
+<span class="hover icon-menu-close"></span>
+</div>
+<a class="event-date" href="/65090-krakow-digital-riot-w-chicago-bar">
+<span>03.10.2026, 21:00</span>
+</a>
+<a class="link pull-right" href="/65090-krakow-digital-riot-w-chicago-bar">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</a>
+</div>
+</div>
+<div class="hidden">
+<a class="map-event-element" data-category="img/marker/21.png" data-id="65090" data-latitude="50.0639596" data-longitude="19.937964400000055" href="/65090-krakow-digital-riot-w-chicago-bar" id="map-item-65090">
+<div class="image">
+<span class="icon"><img alt="" src="/img/movie-icon.png"/></span>
+<img alt="Digital Riot w Chicago Bar" src="http://media.krakow.travel/photos/78948/s.jpg"/> </div>
+<div class="content">
+<div class="content-text">
+<h2>Digital Riot w Chicago Bar</h2>
+</div>
+<div class="element-footer">
+<div class="data">
+<span class="vert-align-helper">03.10.2026, 21:00</span>
+</div>
+<div class="link">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</div>
+</div>
+</div>
+</a> </div>
+</div>
+<div class="event-item" data-c="img/marker/21.png" data-id="65089" data-latitude="50.04870128725" data-longitude="19.943744892204" data-name="What Da Funk: Ghetto Concept, Piko w Pięknym Psie">
+<div>
+<a class="event-image" href="/65089-krakow-what-da-funk-ghetto-concept-piko-w-pieknym-psie">
+<img alt="What Da Funk: Ghetto Concept, Piko w Pięknym Psie" src="http://media.krakow.travel/photos/78947/m.jpg" style="object-position: center center"/> <div class="event-icon" style="background-image: url('img/category/21.svg')"></div>
+</a>
+<a class="event-content" href="/65089-krakow-what-da-funk-ghetto-concept-piko-w-pieknym-psie">
+<h3 class="event-title">
+				What Da Funk: Ghetto Concept, Piko w Pięknym Psie			</h3>
+<span class="event-type">Muzyka klubowa</span>
+<p class="event-text">
+				  3 października  wracamy do Pięknego Psa z tym, na czym od początku opiera się  What Da Funk  — groovem, ulicznymi korzeniami, klasycznymi inspiracjami i świeżym spojrzeniem na klubową...			</p>
+<p class="event-location">
+<span class="icon-location"></span>
+					Piękny Pies, pl. Wolnica 9				</p>
+</a>
+<div class="event-controls">
+<div class="event-add" data-title="Dodano What Da Funk: Ghetto Concept, Piko w Pięknym Psie do sekcji Moje Wydarzenia" data-title-remove="Usunięto z sekcji Moje Wydarzenia" data-url="/guide/toggle/65089">
+<span class="front icon-menu-close"></span>
+<span class="hover icon-menu-close"></span>
+</div>
+<a class="event-date" href="/65089-krakow-what-da-funk-ghetto-concept-piko-w-pieknym-psie">
+<span>03.10.2026, 22:00</span>
+</a>
+<a class="link pull-right" href="/65089-krakow-what-da-funk-ghetto-concept-piko-w-pieknym-psie">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</a>
+</div>
+</div>
+<div class="hidden">
+<a class="map-event-element" data-category="img/marker/21.png" data-id="65089" data-latitude="50.04870128725" data-longitude="19.943744892204" href="/65089-krakow-what-da-funk-ghetto-concept-piko-w-pieknym-psie" id="map-item-65089">
+<div class="image">
+<span class="icon"><img alt="" src="/img/movie-icon.png"/></span>
+<img alt="What Da Funk: Ghetto Concept, Piko w Pięknym Psie" src="http://media.krakow.travel/photos/78947/s.jpg"/> </div>
+<div class="content">
+<div class="content-text">
+<h2>What Da Funk: Ghetto Concept, Piko w Pięknym Psie</h2>
+</div>
+<div class="element-footer">
+<div class="data">
+<span class="vert-align-helper">03.10.2026, 22:00</span>
+</div>
+<div class="link">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</div>
+</div>
+</div>
+</a> </div>
+</div>
+<div class="event-item" data-c="img/marker/32.png" data-id="61062" data-latitude="50.066081081907264" data-longitude="19.927708167163885" data-name="Alicja w Krainie Czarów (Teatr Groteska)">
+<div>
+<a class="event-image" href="/61062-krakow-alicja-w-krainie-czarow-teatr-groteska">
+<img alt="Alicja w Krainie Czarów (Teatr Groteska)" src="http://media.krakow.travel/photos/75567/m.jpg" style="object-position: center center"/> <div class="event-icon" style="background-image: url('img/category/32.svg')"></div>
+</a>
+<a class="event-content" href="/61062-krakow-alicja-w-krainie-czarow-teatr-groteska">
+<h3 class="event-title">
+				Alicja w Krainie Czarów (Teatr Groteska)			</h3>
+<span class="event-type">Spektakle teatralne</span>
+<p class="event-text">
+				  W intermedialnym widowisku w reżyserii Darii Kopiec teatr spotyka się z filmem.   Podczas przedstawienia nie wszystko wygląda tak, jak w zwykłym teatrze. Tu akcja toczy się na specjalnie zbudowanej...			</p>
+<p class="event-location">
+<span class="icon-location"></span>
+					Teatr Groteska, ul. Skarbowa 2				</p>
+</a>
+<div class="event-controls">
+<div class="event-add" data-title="Dodano Alicja w Krainie Czarów (Teatr Groteska) do sekcji Moje Wydarzenia" data-title-remove="Usunięto z sekcji Moje Wydarzenia" data-url="/guide/toggle/61062">
+<span class="front icon-menu-close"></span>
+<span class="hover icon-menu-close"></span>
+</div>
+<a class="event-date" href="/61062-krakow-alicja-w-krainie-czarow-teatr-groteska">
+<span>04.10.2026, 11:00</span>
+</a>
+<a class="link pull-right" href="/61062-krakow-alicja-w-krainie-czarow-teatr-groteska">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</a>
+</div>
+</div>
+<div class="hidden">
+<a class="map-event-element" data-category="img/marker/32.png" data-id="61062" data-latitude="50.066081081907264" data-longitude="19.927708167163885" href="/61062-krakow-alicja-w-krainie-czarow-teatr-groteska" id="map-item-61062">
+<div class="image">
+<span class="icon"><img alt="" src="/img/movie-icon.png"/></span>
+<img alt="Alicja w Krainie Czarów (Teatr Groteska)" src="http://media.krakow.travel/photos/75567/s.jpg"/> </div>
+<div class="content">
+<div class="content-text">
+<h2>Alicja w Krainie Czarów (Teatr Groteska)</h2>
+</div>
+<div class="element-footer">
+<div class="data">
+<span class="vert-align-helper">04.10.2026, 11:00</span>
+</div>
+<div class="link">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</div>
+</div>
+</div>
+</a> </div>
+</div>
+<div class="event-item" data-c="img/marker/36.png" data-id="64480" data-latitude="50.06608366328488" data-longitude="19.959708777111103" data-name="Edukacyjne wycieczki rowerowe 2026">
+<div>
+<a class="event-image" href="/64480-krakow-edukacyjne-wycieczki-rowerowe-2026">
+<img alt="Edukacyjne wycieczki rowerowe 2026" src="http://media.krakow.travel/photos/41411/m.jpg" style="object-position: center center"/> <div class="event-icon" style="background-image: url('img/category/36.svg')"></div>
+</a>
+<a class="event-content" href="/64480-krakow-edukacyjne-wycieczki-rowerowe-2026">
+<h3 class="event-title">
+				Edukacyjne wycieczki rowerowe 2026			</h3>
+<span class="event-type">Pozostałe</span>
+<p class="event-text">
+				 Chcesz ugruntować wiedzę z zakresu najważniejszych przepisów ruchu drogowego? Nie pamiętasz, jaki jest skład niezbędnego podstawowego wyposażenia roweru? Zastanawiasz się, czy...			</p>
+</a>
+<div class="event-controls">
+<div class="event-add" data-title="Dodano Edukacyjne wycieczki rowerowe 2026 do sekcji Moje Wydarzenia" data-title-remove="Usunięto z sekcji Moje Wydarzenia" data-url="/guide/toggle/64480">
+<span class="front icon-menu-close"></span>
+<span class="hover icon-menu-close"></span>
+</div>
+<a class="event-date" href="/64480-krakow-edukacyjne-wycieczki-rowerowe-2026">
+<span>04.10.2026, 11:00</span>
+</a>
+<a class="link pull-right" href="/64480-krakow-edukacyjne-wycieczki-rowerowe-2026">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</a>
+</div>
+</div>
+<div class="hidden">
+<a class="map-event-element" data-category="img/marker/36.png" data-id="64480" data-latitude="50.06608366328488" data-longitude="19.959708777111103" href="/64480-krakow-edukacyjne-wycieczki-rowerowe-2026" id="map-item-64480">
+<div class="image">
+<span class="icon"><img alt="" src="/img/movie-icon.png"/></span>
+<img alt="Edukacyjne wycieczki rowerowe 2026" src="http://media.krakow.travel/photos/41411/s.jpg"/> </div>
+<div class="content">
+<div class="content-text">
+<h2>Edukacyjne wycieczki rowerowe 2026</h2>
+</div>
+<div class="element-footer">
+<div class="data">
+<span class="vert-align-helper">04.10.2026, 11:00</span>
+</div>
+<div class="link">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</div>
+</div>
+</div>
+</a> </div>
+</div>
+<div class="event-item" data-c="img/marker/36.png" data-id="65021" data-latitude="50.051871450106944" data-longitude="19.94919876531229" data-name="2. Święto Ulicy Dajwór">
+<div>
+<a class="event-image" href="/65021-krakow-2-swieto-ulicy-dajwor">
+<img alt="2. Święto Ulicy Dajwór" src="http://media.krakow.travel/photos/78871/m.jpg" style="object-position: center center"/> <div class="event-icon" style="background-image: url('img/category/36.svg')"></div>
+</a>
+<a class="event-content" href="/65021-krakow-2-swieto-ulicy-dajwor">
+<h3 class="event-title">
+				2. Święto Ulicy Dajwór			</h3>
+<span class="event-type">Widowiska plenerowe i happeningi</span>
+<p class="event-text">
+				  Żydowskie Muzeum Galicja wraz z lokalnymi partnerami zapraszają wszystkich – mieszkańców, przyjaciół dzielnicy i turystów w każdym wieku – na drugą edycję...			</p>
+<p class="event-location">
+<span class="icon-location"></span>
+					Żydowskie Muzeum Galicja, ul. Dajwór 18				</p>
+</a>
+<div class="event-controls">
+<div class="event-add" data-title="Dodano 2. Święto Ulicy Dajwór do sekcji Moje Wydarzenia" data-title-remove="Usunięto z sekcji Moje Wydarzenia" data-url="/guide/toggle/65021">
+<span class="front icon-menu-close"></span>
+<span class="hover icon-menu-close"></span>
+</div>
+<a class="event-date" href="/65021-krakow-2-swieto-ulicy-dajwor">
+<span>04.10.2026, 11:00-16:00</span>
+</a>
+<a class="link pull-right" href="/65021-krakow-2-swieto-ulicy-dajwor">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</a>
+</div>
+</div>
+<div class="hidden">
+<a class="map-event-element" data-category="img/marker/36.png" data-id="65021" data-latitude="50.051871450106944" data-longitude="19.94919876531229" href="/65021-krakow-2-swieto-ulicy-dajwor" id="map-item-65021">
+<div class="image">
+<span class="icon"><img alt="" src="/img/movie-icon.png"/></span>
+<img alt="2. Święto Ulicy Dajwór" src="http://media.krakow.travel/photos/78871/s.jpg"/> </div>
+<div class="content">
+<div class="content-text">
+<h2>2. Święto Ulicy Dajwór</h2>
+</div>
+<div class="element-footer">
+<div class="data">
+<span class="vert-align-helper">04.10.2026, 11:00-16:00</span>
+</div>
+<div class="link">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</div>
+</div>
+</div>
+</a> </div>
+</div>
+<div class="event-item" data-c="img/marker/34.png" data-id="65060" data-latitude="50.0673907" data-longitude="19.9376641" data-name="Czytamy i oglądamy w Agrafce: Niesamowite przygody skarpetek 4: Do roboty!">
+<div>
+<a class="event-image" href="/65060-krakow-czytamy-i-ogladamy-w-agrafce-niesamowite-przygody-skarpetek-4-do-roboty">
+<img alt="Czytamy i oglądamy w Agrafce: Niesamowite przygody skarpetek 4: Do roboty!" src="http://media.krakow.travel/photos/78913/m.jpg" style="object-position: center center"/> <div class="event-icon" style="background-image: url('img/category/34.svg')"></div>
+</a>
+<a class="event-content" href="/65060-krakow-czytamy-i-ogladamy-w-agrafce-niesamowite-przygody-skarpetek-4-do-roboty">
+<h3 class="event-title">
+				Czytamy i oglądamy w Agrafce: Niesamowite przygody skarpetek 4: Do roboty!			</h3>
+<span class="event-type">Pokazy filmowe</span>
+<p class="event-text">
+				 Czytamy i Oglądamy to dobrze już znany krakowskim rodzicom cykl pokazów filmowych dla młodych widzów połączony z warsztatami rozwijającymi wyobraźnię.  
+   4 października...			</p>
+<p class="event-location">
+<span class="icon-location"></span>
+					Kino Agrafka, ul. Krowoderska 8				</p>
+</a>
+<div class="event-controls">
+<div class="event-add" data-title="Dodano Czytamy i oglądamy w Agrafce: Niesamowite przygody skarpetek 4: Do roboty! do sekcji Moje Wydarzenia" data-title-remove="Usunięto z sekcji Moje Wydarzenia" data-url="/guide/toggle/65060">
+<span class="front icon-menu-close"></span>
+<span class="hover icon-menu-close"></span>
+</div>
+<a class="event-date" href="/65060-krakow-czytamy-i-ogladamy-w-agrafce-niesamowite-przygody-skarpetek-4-do-roboty">
+<span>04.10.2026, 11:00</span>
+</a>
+<a class="link pull-right" href="/65060-krakow-czytamy-i-ogladamy-w-agrafce-niesamowite-przygody-skarpetek-4-do-roboty">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</a>
+</div>
+</div>
+<div class="hidden">
+<a class="map-event-element" data-category="img/marker/34.png" data-id="65060" data-latitude="50.0673907" data-longitude="19.9376641" href="/65060-krakow-czytamy-i-ogladamy-w-agrafce-niesamowite-przygody-skarpetek-4-do-roboty" id="map-item-65060">
+<div class="image">
+<span class="icon"><img alt="" src="/img/movie-icon.png"/></span>
+<img alt="Czytamy i oglądamy w Agrafce: Niesamowite przygody skarpetek 4: Do roboty!" src="http://media.krakow.travel/photos/78913/s.jpg"/> </div>
+<div class="content">
+<div class="content-text">
+<h2>Czytamy i oglądamy w Agrafce: Niesamowite przygody skarpetek 4: Do roboty!</h2>
+</div>
+<div class="element-footer">
+<div class="data">
+<span class="vert-align-helper">04.10.2026, 11:00</span>
+</div>
+<div class="link">
+<span class="front icon-arrow-right"></span>
+<span class="hover icon-arrow-right"></span>
+</div>
+</div>
+</div>
+</a> </div>
+</div>
+</div> <div class="pagination clearfix"><a class="button prev" href="/wydarzenia?Item_page=4"><span class="icon-more-arrow"></span>poprzednia</a><a class="button next" href="/wydarzenia?Item_page=6"><span class="icon-more-arrow"></span>następna</a><ul class="yiiPager" id="yw1"><li class="page"><a href="/wydarzenia?Item_page=3">3</a></li>
+<li class="page"><a href="/wydarzenia?Item_page=4">4</a></li>
+<li class="page active"><a href="/wydarzenia?Item_page=5">5</a></li>
+<li class="page"><a href="/wydarzenia?Item_page=6">6</a></li>
+<li class="page"><a href="/wydarzenia?Item_page=7">7</a></li></ul></div><div class="keys" style="display:none" title="/wydarzenia?Item_page=5"><span>63985</span><span>64257</span><span>64519</span><span>64691</span><span>64915</span><span>64992</span><span>65090</span><span>65089</span><span>61062</span><span>64480</span><span>65021</span><span>65060</span></div>
+</div>
+<div class="spacer-big"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="container">
+<div class="partner-wrapper">
+<div class="partner-carousel owl-carousel" id="partner-carousel">
+<div class="partner">
+<a class="partner-link" href="http://krakow.pl/" target="_blank"><img alt="" class="partner-img" src="http://media.krakow.travel/photos/48616/xxs.jpg"/></a>
+</div>
+<div class="partner">
+<a class="partner-link" href="http://kbf.krakow.pl" target="_blank"><img alt="" class="partner-img" src="http://media.krakow.travel/photos/46329/xxs.jpg"/></a>
+</div>
+<div class="partner">
+<a class="partner-link" href="http://www.krakow.travel/" target="_blank"><img alt="" class="partner-img" src="http://media.krakow.travel/photos/21784/xxs.jpg"/></a>
+</div>
+<div class="partner">
+<a class="partner-link" href="http://miastoliteratury.pl/" target="_blank"><img alt="" class="partner-img" src="http://media.krakow.travel/photos/26499/xxs.jpg"/></a>
+</div>
+<div class="partner">
+<a class="partner-link" href="http://film-commission.pl/" target="_blank"><img alt="" class="partner-img" src="http://media.krakow.travel/photos/21778/xxs.jpg"/></a>
+</div>
+<div class="partner">
+<a class="partner-link" href="http://convention.krakow.pl" target="_blank"><img alt="" class="partner-img" src="http://media.krakow.travel/photos/21777/xxs.jpg"/></a>
+</div>
+</div>
+</div>
+</div>
+<footer class="container main-footer clearfix">
+<div class="row">
+<div class="col-md-8">
+<div class="karnet-logo-img">
+<img src="img/logo-black.svg"/>
+</div>
+</div>
+<div class="col-md-4 contact">
+<div>
+<h4>Redakcja:</h4>
+                    ul. Wygrana 2<br/>30-311 Kraków
+                </div>
+<div>
+                    karnet@krakowculture.pl<br/>
+                    pn.-pt. 8.30-16.30
+                </div>
+</div>
+</div>
+<div class="row social">
+<div class="col-md-4 col-xs-12 text uppercase">
+<div>Portal Informacyjno-Kulturalny</div>
+<div>Miasta Krakowa.</div>
+</div>
+<div class="col-md-2 col-xs-3">
+<a class="fb" href="https://www.facebook.com/karnet.krakowculture" id="fb" target="_blank">
+<span class="icon icon-social-facebook-alt"></span>
+</a>
+</div>
+<div class="col-md-2 col-xs-3">
+<a href="https://www.instagram.com/kbf.krakow/" target="_blank">
+<span class="icon icon-social-instagram"></span>
+</a>
+</div>
+<div class="col-md-2 col-xs-3">
+<a href="https://www.linkedin.com/company/kbf-krakow/" target="_blank">
+<span class="icon icon-social-linkedin"></span>
+</a>
+</div>
+<div class="col-md-2 col-xs-3">
+<a href="https://www.youtube.com/user/biurofestiwalowe" target="_blank">
+<span class="icon icon-social-youtube"></span>
+</a>
+</div>
+</div>
+<div class="row menu">
+<div class="col-md-2">
+<ul class="footer-list" id="yw3">
+<li class="active"><a href="/wydarzenia">Wydarzenia</a></li>
+<li><a href="/karnet-poleca">Polecamy</a></li>
+<li><a href="/magazyn-karnet">Magazyny</a></li>
+</ul>
+</div>
+<div class="col-md-2">
+<ul class="footer-list" id="yw4">
+<li><a href="/mapa">Mapa</a></li>
+<li><a href="/kalendarium">Kalendarium roczne</a></li>
+<li><a href="/artykuly">Artykuły</a></li>
+<li><a href="/moje-wydarzenia">Moje wydarzenia</a></li>
+</ul>
+</div>
+<div class="col-md-2">
+<ul class="footer-list">
+<li><li><a href="/wydarzenia/festiwale,30?Item_page=5">Festiwale</a></li></li>
+<li><li><a href="/wydarzenia/koncerty,21?Item_page=5">Koncerty</a></li></li>
+<li><li><a href="/wydarzenia/spektakle,32?Item_page=5">Spektakle</a></li></li>
+<li><li><a href="/wydarzenia/literatura,25?Item_page=5">Literatura</a></li></li>
+</ul>
+</div>
+<div class="col-md-2">
+<ul class="footer-list">
+<li><li><a href="/wydarzenia/film,34?Item_page=5">Film</a></li></li>
+<li><li><a href="/wydarzenia/wystawy,35?Item_page=5">Wystawy</a></li></li>
+<li><li><a href="/wydarzenia/w-gminach-metropolii,192?Item_page=5">W gminach Metropolii</a></li></li>
+<li><li><a href="/wydarzenia/inne,36?Item_page=5">Inne</a></li></li>
+</ul>
+</div>
+<div class="col-md-2">
+<ul class="footer-list">
+<li><a href="/site/advertise">Reklama</a></li>
+<li><a href="/site/contact">Kontakt</a></li>
+<li><a id="openNewsletter" style="cursor:pointer;">Newsletter</a></li>
+</ul>
+</div>
+<div class="col-md-2"></div>
+</div>
+<div id="office">
+<p><a href="/site/availability">Deklaracja dostępności</a> © Krakowskie Biuro Festiwalowe 2026</p>
+</div>
+</footer></div>
+<section class="logos container">
+<div class="partners">
+<a href="http://www.krakow.travel">
+<img alt="Kraków Travel" src="img/krakow-travel.png"/>
+</a>
+</div>
+<div class="partners">
+<a href="https://www.kidsinkrakow.pl">
+<img alt="Kids in Kraków" src="img/kids-in-krakow.png"/>
+</a>
+</div>
+</section>
+<button class="btn" id="scrollTop"><span></span></button>
+<div id="accept-cookies-question">
+<a href="#">Zamknij</a>
+		Nasz strona korzysta z plików cookies w celach statystycznych, marketingowych i promocyjnych. Możesz wyłączyć tą opcję w ustawieniach prywatności swojej przeglądarki.				
+	</div>
+    &lt;
+</body>
+</html>
