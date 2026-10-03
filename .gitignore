@@ -225,3 +225,6 @@ data/*.db-wal
 data/*.db-shm
 data/cache/
 data/avatars/
+
+# IDE
+.idea/
