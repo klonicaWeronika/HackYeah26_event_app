@@ -1,4 +1,8 @@
+# Konfiguracja Streamlit dla KRK Razem (właściciel: M1). Nazwa i podtytuł aplikacji: shared/config.py.
+
 [theme]
+# Kolor akcentu marki — ten sam odcień co awatary (M3), chipy wspólnych tagów (M3) i własne dymki czatu (M5).
+# Jasny/ciemny motyw zostaje automatyczny (ustawienie systemu użytkownika).
 primaryColor = "#E4572E"
 
 [server]
