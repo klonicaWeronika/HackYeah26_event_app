@@ -66,18 +66,25 @@ from m5_chat.chat_view import render_chat_room, render_attendance_controls
 ### 3.2 Wyjście — publiczne API
 
 ```python
-# m1_ui_map/map_view.py
+# m1_ui_map/map_view.py — mapa na cały ekran (stała mapa bazowa + warstwy przez feature_group_to_add)
 pin_positions(events: list[Event]) -> dict[str, tuple[float, float]]
 find_clicked_event(click: dict, positions: dict[str, tuple[float, float]]) -> str | None
-build_map(events: list[Event], positions: dict[str, tuple[float, float]]) -> folium.Map
-render_map(events: list[Event]) -> str | None          # event_id NOWO klikniętej pinezki
-reset_map() -> None
+pins_payload(events, positions, selected_id=None) -> list[list]   # dane pinezek dla JS
+build_map(events, positions, *, dark=False, selected_id=None, radius_center=None, radius_km=None) -> folium.Map
+render_map(events, *, selected_id, radius_center, radius_km, focus: MapFocus | None, dark) -> MapClick
+reset_map() -> None                                     # wymusza ponowny montaż (zwykle zbędne)
+
+# m1_ui_map/location.py — promień „X km od miejsca Y” (czysta logika)
+PLACES: dict[str, Place]; distance_km(...); within_radius(events, center, radius_km); format_distance(km)
 
 # m1_ui_map/layout.py
-inject_css() -> None
-render_header(storage: Storage, user: User) -> None
-render_filters(storage: Storage) -> FilterCriteria
-render_event_panel(storage: Storage, user: User, event: Event | None) -> None
+inject_css(dark: bool) -> None
+render_header(storage, user) -> None                    # górny pasek: logo, wyszukiwarka + lokalizacja, akcje, menu
+render_category_bar() -> list[Category]                 # kółka kategorii (liczniki: render_category_counts)
+render_filters(storage, *, categories) -> FilterCriteria   # daty (presety), zainteresowania, darmowe
+render_list_header(count, location) -> str              # tytuł + licznik + sortowanie
+render_event_list(storage, events, *, selected_id, center) -> None
+render_event_panel(storage, user, event: Event | None) -> None
 ```
 
 ### 3.3 Stan sesji
@@ -89,7 +96,7 @@ render_event_panel(storage: Storage, user: User, event: Event | None) -> None
 | `set_filters()` | — | ✅ (co rerun) |
 | `current_user_id()` | ✅ | — |
 
-Prywatne: `m1_f_<pole>_<wersja>` + `m1_f_ver` (widgety filtrów; „Wyczyść” podbija wersję), `m1_menu` (stan popovera „Menu”), `m1_menu_ctx`, `m1_map_nonce`, `m1_last_click`.
+Prywatne: `m1_f_<pole>_<wersja>` + `m1_f_ver` (widgety filtrów: query, cats, when, dates, tags, free, sort, place, radius; „Wyczyść” podbija wersję), `m1_menu` / `m1_loc` (popovery), `m1_menu_ctx`, `m1_page` (paginacja listy), `m1_left_toggle` / `m1_right_toggle` (schowane panele), `m1_pick` / `m1_picked` / `m1_pending_place` (wskazywanie środka promienia na mapie), `m1_focus*` (dokąd przesunąć mapę), `m1_map_nonce`, `m1_last_click`, `m1_last_point`.
 
 ### 3.4 Pliki modułu
 

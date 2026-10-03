@@ -1,5 +1,6 @@
 """M2-09 — formularz „Dodaj wydarzenie”: logika (czyste funkcje) + UI przez AppTest na bazie w pamięci."""
 
+import re
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
@@ -136,15 +137,20 @@ def test_form_shows_errors_and_saves_nothing(memory_storage: Storage):
     assert len(memory_storage.list_events()) == before
 
 
+def _results_count(at: AppTest) -> int:
+    """Licznik wyników nad listą wydarzeń M1 (`Wydarzenia <span class="m1-count">N</span>`)."""
+    header = next(m.value for m in at.markdown if 'class="m1-count"' in m.value)
+    return int(re.search(r'class="m1-count">(\d+)<', header).group(1))
+
+
 def test_full_app_add_event_visible_on_map_and_panel(memory_storage: Storage, monkeypatch):
     """Ścieżka z aplikacji (flaga włączona tylko w teście): ⚙️ Opcje -> Dodaj -> zapis -> mapa + panel."""
     monkeypatch.setitem(__import__("shared.config", fromlist=["FEATURES"]).FEATURES, "add_event", True)
     at = AppTest.from_file(str(PROJECT_ROOT / "app.py"), default_timeout=30).run()
-    on_map = int(next(c.value for c in at.sidebar.caption if c.value.startswith("Na mapie")).split("**")[1])
+    on_map = _results_count(at)
     at.button(key="m1_menu_add_event").click().run()
     assert at.session_state["view"] == View.ADD_EVENT
     at = _fill_and_save(at, "Spacer fotograficzny po Kazimierzu")
     assert not at.exception
-    caption = next(c.value for c in at.sidebar.caption if c.value.startswith("Na mapie"))
-    assert caption == f"Na mapie: **{on_map + 1}** wydarzeń"            # od razu na mapie (ten sam przebieg)
+    assert _results_count(at) == on_map + 1                              # od razu na mapie (ten sam przebieg)
     assert any("Spacer fotograficzny po Kazimierzu" in m.value for m in at.markdown)   # i w prawym panelu

@@ -6,7 +6,8 @@ from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
 
-from m1_ui_map.map_view import build_map, find_clicked_event, pin_positions
+from m1_ui_map.location import Place
+from m1_ui_map.map_view import build_map, find_clicked_event, pin_positions, pins_payload
 from shared.models import Event
 from shared.storage import Storage
 
@@ -25,10 +26,31 @@ def test_click_maps_back_to_event(storage: Storage):
     assert find_clicked_event({"lat": 50.0, "lng": 19.0}, positions) is None   # klik obok pinezek
 
 
-def test_build_map_has_marker_per_event(storage: Storage):
+def test_pins_payload_has_every_event_and_one_selected(storage: Storage):
     events = storage.list_events()
-    html = build_map(events, pin_positions(events)).get_root().render()
-    assert html.count("L.marker(") == len(events)
+    positions = pin_positions(events)
+    pins = pins_payload(events, positions, selected_id=events[0].id)
+    assert [p[0] for p in pins] == [e.id for e in events]
+    assert sum(p[6] for p in pins) == 1 and pins[0][6] == 1
+    assert all(p[3].startswith("#") and p[4] for p in pins)                    # kolor kategorii + ikona FA
+    assert find_clicked_event({"lat": pins[1][1], "lng": pins[1][2]}, positions) == pins[1][0]
+
+
+def test_build_map_contains_layers_and_radius(storage: Storage):
+    events = storage.list_events()
+    html = build_map(events, pin_positions(events), radius_center=Place(50.06, 19.94), radius_km=2.0)
+    rendered = html.get_root().render()
+    assert "markerClusterGroup" in rendered and "L.circle(" in rendered
+    assert "[50.06, 19.94, 2000.0]" in rendered
+    for event in events:
+        assert f'"{event.id}"' in rendered
+
+
+def test_tooltip_escapes_event_data():
+    evil = Event(id="x", title="<img src=x onerror=alert(1)>", start=datetime(2026, 1, 1), venue="v",
+                 lat=50.05, lon=19.94)
+    pins = pins_payload([evil], pin_positions([evil]))
+    assert "<img" not in pins[0][5] and "&lt;img" in pins[0][5]
 
 
 def test_pin_spread_is_small():

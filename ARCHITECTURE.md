@@ -170,22 +170,25 @@ sequenceDiagram
 flowchart TD
     A["rerun (interakcja / start)"] --> B["st.set_page_config · get_storage() · state.init()"]
     B --> C["user = storage.get_user(state.current_user_id())"]
-    C --> D["M1 render_header — awatar M3, ⚙️ Opcje"]
-    D --> E["M1 render_filters (sidebar) → FilterCriteria → state.set_filters"]
-    E --> F["events = storage.list_events(criteria)"]
-    F --> G{"state.current_view()"}
-    G -->|MAP| H["M1 render_map → klik? → state.select_event(id)"]
+    C --> D["M1 render_header — wyszukiwarka + lokalizacja/promień, awatar M3, menu"]
+    D --> E["M1 render_filters (lewy panel) → FilterCriteria → state.set_filters"]
+    E --> F["events = within_radius(storage.list_events(criteria))"]
+    F --> H["M1 render_map (cały ekran) → klik? → state.select_event(id)"]
+    H --> LST["M1 render_event_list (lewy panel, widzi wybór z mapy)"]
+    LST --> G{"state.current_view()"}
     G -->|CHAT| I["M5 render_chat_room — @st.fragment(run_every=2s)"]
     G -->|PROFILE_EDIT| J["M3 render_profile_editor"]
     G -->|PROFILE_VIEW| K["M3 render_profile_view"]
     G -->|ADD_EVENT| L["M2 render_add_event_form (flaga)"]
-    H & I & J & K & L --> P["M1 render_event_panel (prawa kolumna)"]
+    G -->|MAP| P
+    I & J & K & L --> P["M1 render_event_panel (prawy panel)"]
     P --> Q{"wybrany event?"}
     Q -->|nie| R["M4 render_recommendations"]
     Q -->|tak| S["szczegóły · M5 Idę! · przycisk czatu · M4 match_for_event → M3 render_user_card"]
 ```
 
-Kluczowy trik: **prawy panel renderuje się po mapie**, więc klik w pinezkę ustawia `selected_event_id` i panel pokazuje event w *tym samym* przebiegu — bez dodatkowego `st.rerun()`.
+Kluczowy trik: **lista i prawy panel renderują się po mapie**, więc klik w pinezkę ustawia `selected_event_id` i panel pokazuje event w *tym samym* przebiegu — bez dodatkowego `st.rerun()`.
+Układ: mapa na cały ekran pod spodem, nad nią pływają (CSS `position: fixed` po klasach `st-key-*`) górny pasek, pasek kategorii, lista (lewo), szczegóły (prawo) i arkusz czatu/profilu/formularza nad listą. Mapa jest zawsze zamontowana — widoki CHAT/PROFILE nie resetują jej widoku.
 
 ### 5.2 Stan sesji (`shared/state.py` — jedyne źródło kluczy)
 
@@ -221,7 +224,7 @@ stateDiagram-v2
 ## 6. Wydajność — zasady obowiązujące wszystkich
 
 1. **Żadnego SQL w ścieżce renderowania** poza czatem — czytamy przez `Storage` (snapshot w RAM).
-2. **Mapa:** `returned_objects=["last_object_clicked"]` (pan/zoom nie robi reruna), stały `key`, stały układ kolumn (panel zawsze istnieje → mapa nie jest przemontowywana).
+2. **Mapa:** stała mapa bazowa + pinezki/promień przez `feature_group_to_add` (filtry nie resetują widoku), `returned_objects` bez bounds/zoom (pan/zoom nie robi reruna), stały `key`, mapa zawsze zamontowana.
 3. **Czat:** `@st.fragment(run_every=…)` — co 2 s odświeża się tylko okno czatu, nie cała strona.
 4. **Ciężkie obliczenia** (np. IDF w M4, budowa mapy w M1) → `st.cache_resource` / memo kluczowane wersją danych.
 5. **Callbacki (`on_click`) zamiast `if st.button(): … st.rerun()`** tam, gdzie się da — jeden rerun zamiast dwóch.
