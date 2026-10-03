@@ -6,6 +6,7 @@ Publiczne API (kontrakt — sygnatur nie zmieniamy bez PR; wolno dodawać argume
     tag_similarity(a, b, *, idf=None) -> (score, shared_tags)
     match_for_event(storage, user, event_id, *, limit=10, weights=None) -> list[MatchResult]
     recommend_events(storage, user, *, limit=5) -> list[Recommendation]
+    match_users(storage, user, *, limit=10) -> list[MatchResult]   (M4-06, event_id=None)
 Pomocnicze (nowe):
     build_idf(users) -> IdfWeights
     match_breakdown(storage, user, event_id, *, weights=None) -> list[MatchBreakdown]  (sandbox, M4-03)
@@ -175,10 +176,13 @@ class MatchBreakdown:
     co_past_count: int = 0                   # ile z co_event_ids już się odbyło (do uzasadnienia)
 
 
-def _shared_events(storage: Storage, user_id: str, exclude_event_id: str) -> dict[str, tuple[str, ...]]:
+def _shared_events(
+    storage: Storage, user_id: str, exclude_event_id: str | None,
+) -> dict[str, tuple[str, ...]]:
     """{inny user_id: wspólne wydarzenia} — tylko tam, gdzie OBOJE mają open_to_meet=True.
 
     Symetryczne (A→B == B→A) i nie zdradza ukrytych zapisów żadnej ze stron.
+    `exclude_event_id` — bieżący event, który się nie liczy (None: liczą się wszystkie).
     """
     shared: dict[str, list[str]] = defaultdict(list)
     for mine in storage.list_user_attendance(user_id):
@@ -188,6 +192,15 @@ def _shared_events(storage: Storage, user_id: str, exclude_event_id: str) -> dic
             if theirs.user_id != user_id and theirs.open_to_meet:
                 shared[theirs.user_id].append(mine.event_id)
     return {uid: tuple(sorted(ids)) for uid, ids in shared.items()}
+
+
+def _past_event_ids(storage: Storage, co_events: Mapping[str, tuple[str, ...]]) -> set[str]:
+    """Które ze wspólnych wydarzeń już się skończyły (do „Już razem na …”)."""
+    now = datetime.now()
+    return {
+        eid for ids in co_events.values() for eid in ids
+        if (e := storage.get_event(eid)) is not None and e.end_or_start < now
+    }
 
 
 def _breakdown_sort_key(b: MatchBreakdown) -> tuple:
@@ -209,11 +222,7 @@ def match_breakdown(
     co_events = _shared_events(storage, user.id, event_id)
     event = storage.get_event(event_id)
     event_tags = set(event.tags) if event else set()
-    now = datetime.now()
-    past_ids = {
-        eid for ids in co_events.values() for eid in ids
-        if (e := storage.get_event(eid)) is not None and e.end_or_start < now
-    }
+    past_ids = _past_event_ids(storage, co_events)
 
     results: list[MatchBreakdown] = []
     for att in attendances:
@@ -259,6 +268,43 @@ def match_for_event(
         )
         for b in match_breakdown(storage, user, event_id, weights=weights)[:limit]
     ]
+
+
+# --------------------------------------------------------------------------- #
+# Dopasowania globalne (profil / onboarding)
+# --------------------------------------------------------------------------- #
+
+
+def match_users(
+    storage: Storage, user: User, *, limit: int = 10, weights: Mapping[str, float] | None = None,
+) -> list[MatchResult]:
+    """Osoby podobne do `user` niezależnie od eventu (`event_id=None`), od najlepiej dopasowanej.
+
+    Sygnały jak w match_for_event bez kontekstu eventu: `tags` (Jaccard IDF) i `co_attendance`
+    (wszystkie wspólne wydarzenia, gdzie oboje są widoczni) — event_fit i status są nieobecne,
+    więc wagi normalizują się po tych dwóch. Pomijamy osoby, z którymi nic nie łączy (score 0).
+    """
+    others = [u for u in storage.list_users() if u.id != user.id]
+    idf = build_idf(storage.list_users())
+    co_events = _shared_events(storage, user.id, None)
+    past_ids = _past_event_ids(storage, co_events)
+
+    results: list[MatchResult] = []
+    for other in others:
+        tags_sim, shared = tag_similarity(user.tags, other.tags, idf=idf)
+        co = co_events.get(other.id, ())
+        if not shared and not co:
+            continue
+        signals = {"tags": tags_sim, "co_attendance": min(len(co) / CO_ATTENDANCE_SATURATION, 1.0)}
+        co_phrase = _co_attendance_phrase(sum(1 for eid in co if eid in past_ids), len(co), also=False)
+        results.append(MatchResult(
+            user=other, event_id=None,
+            score=round(weighted_score(signals, weights), SCORE_DECIMALS),
+            shared_tags=shared,
+            reason=_tags_and(shared, co_phrase) or co_phrase or "Podobne zainteresowania",
+        ))
+    results.sort(key=lambda m: (-m.score, m.user.name.casefold(), m.user.id))
+    return results[:max(limit, 0)]
 
 
 # --------------------------------------------------------------------------- #
@@ -311,12 +357,23 @@ def _tag_list(prefix: str, tags: Iterable[str], budget: int, *, truncate: bool =
     return prefix + tags[0][:room].rstrip() + _ELLIPSIS if room >= 3 else None
 
 
-def _co_attendance_phrase(b: MatchBreakdown) -> str | None:
-    if b.co_past_count:
-        return "Już razem na " + events_locative(b.co_past_count)
-    if b.co_event_ids:
-        return "Razem też na " + events_locative(len(b.co_event_ids))
+def _co_attendance_phrase(past: int, total: int, *, also: bool = True) -> str | None:
+    """Przeszłe wspólne wydarzenia mają pierwszeństwo; `also` — „też” obok bieżącego eventu."""
+    if past:
+        return "Już razem na " + events_locative(past)
+    if total:
+        return ("Razem też na " if also else "Razem na ") + events_locative(total)
     return None
+
+
+def _tags_and(shared_tags: Iterable[str], extra: str | None) -> str | None:
+    """„Wspólne: …” + ewentualnie „ · extra”. Tagu nie ucinamy, żeby zmieścić `extra` —
+    gdy całe słowo się nie mieści, rezygnujemy z `extra`. Brak tagów → None."""
+    shared_tags = tuple(shared_tags)
+    if extra and (tags := _tag_list("Wspólne: ", shared_tags,
+                                    REASON_MAX_LEN - len(REASON_SEP) - len(extra), truncate=False)):
+        return tags + REASON_SEP + extra
+    return _tag_list("Wspólne: ", shared_tags, REASON_MAX_LEN)
 
 
 def _status_phrase(status: AttendanceStatus) -> str:
@@ -331,14 +388,9 @@ def match_reason(b: MatchBreakdown) -> str:
     Zawsze niepuste i ≤ REASON_MAX_LEN znaków, np. „Wspólne: jazz, fotografia · Już razem na 2
     wydarzeniach”.
     """
-    co = _co_attendance_phrase(b)
+    co = _co_attendance_phrase(b.co_past_count, len(b.co_event_ids))
     if b.shared_tags:
-        # współobecność ma stałą długość, więc tagom zostawiamy resztę budżetu; tagu nie ucinamy —
-        # gdy całe słowo się nie mieści, rezygnujemy ze współobecności
-        if co and (tags := _tag_list("Wspólne: ", b.shared_tags,
-                                     REASON_MAX_LEN - len(REASON_SEP) - len(co), truncate=False)):
-            return tags + REASON_SEP + co
-        return _tag_list("Wspólne: ", b.shared_tags, REASON_MAX_LEN) or _status_phrase(b.status)
+        return _tags_and(b.shared_tags, co) or _status_phrase(b.status)
     if co:
         return co
     fit = _tag_list("Pasuje do wydarzenia: ", b.event_fit_tags, REASON_MAX_LEN)

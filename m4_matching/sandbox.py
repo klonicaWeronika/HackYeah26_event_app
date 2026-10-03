@@ -17,6 +17,7 @@ from m4_matching.engine import (  # noqa: E402
     WEIGHTS,
     match_breakdown,
     match_reason,
+    match_users,
     recommend_breakdown,
     recommend_events,
 )
@@ -97,3 +98,10 @@ with col_recs:
              for r in recommend_breakdown(storage, user, weights=rec_weights)],
             width="stretch", hide_index=True,
         )
+
+st.subheader("Podobni globalnie — match_users (profil, bez eventu)")
+st.dataframe(
+    [{"osoba": m.user.name, "score": m.score, "wspólne tagi": ", ".join(m.shared_tags), "powód": m.reason}
+     for m in match_users(storage, user, weights=weights)],
+    width="stretch", hide_index=True,
+)
