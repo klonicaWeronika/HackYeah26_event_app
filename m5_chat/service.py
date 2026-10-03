@@ -4,6 +4,9 @@ M5 — logika czatu i interakcji (bez streamlit -> testowalna pytestem).
 Publiczne API (kontrakt):
     send_message(storage, room_id, user_id, text) -> ChatMessage | None
     room_title(storage, room_id) -> str
+Anty-spam i higiena tekstu:
+    sanitize_text(text) -> str
+    seconds_until_allowed(last_sent_at, now) -> float
 Pomocnicze (bezpieczne wyświetlanie danych użytkownika, układ czatu):
     escape_markdown(text) -> str
     css_string(text) -> str
@@ -28,6 +31,8 @@ from shared.models import Attendance, AttendanceStatus, ChatMessage
 from shared.storage import Storage
 
 MAX_MESSAGE_LEN = 500
+MAX_MESSAGE_LINES = 20             # dłuższe wiadomości sklejamy (pionowy „flood” jedną wiadomością)
+MIN_SEND_INTERVAL = 1.0            # s — najwyżej 1 wiadomość na sekundę z jednej sesji
 GROUP_GAP = timedelta(minutes=5)   # dłuższa przerwa = nowy nagłówek (awatar + imię), nawet u tej samej osoby
 BUFFER_LIMIT = 300                 # tyle ostatnich wiadomości pokoju trzymamy w pamięci sesji
 # `created_at` nadaje się PRZED zapisem, więc wiadomość z innego wątku/procesu może trafić do bazy
@@ -38,14 +43,41 @@ POLL_OVERLAP = timedelta(seconds=10)
 _SAFE_HTTP_URL = re.compile(r"https?://[A-Za-z0-9\-._~:/?#\[\]@!$&*+,;=%]+")
 _SAFE_DATA_URI = re.compile(r"data:image/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/]+={0,2}")
 _MD_ESCAPES = str.maketrans({c: "\\" + c for c in string.punctuation})
+# Znaki sterujące (poza \t i \n) oraz sterowanie kierunkiem tekstu (bidi override/isolate) —
+# te drugie pozwalają „odwrócić” fragment wiadomości i podszyć się pod inną treść.
+_INVISIBLE_CONTROLS = re.compile("[\x00-\x08\x0b-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]")
+
+
+def sanitize_text(text: str) -> str:
+    """Tekst wiadomości gotowy do zapisu: bez znaków sterujących, najwyżej jedna pusta linia z rzędu,
+    najwyżej MAX_MESSAGE_LINES linii i MAX_MESSAGE_LEN znaków. Treść (HTML, markdown) zostaje bez zmian —
+    o dosłowne wyświetlanie dba widok (html.escape)."""
+    text = _INVISIBLE_CONTROLS.sub("", text.replace("\r\n", "\n").replace("\r", "\n"))
+    text = re.sub(r"\n{3,}", "\n\n", "\n".join(line.rstrip() for line in text.split("\n"))).strip()
+    lines = text.split("\n")
+    if len(lines) > MAX_MESSAGE_LINES:
+        text = "\n".join(lines[: MAX_MESSAGE_LINES - 1] + [" ".join(lines[MAX_MESSAGE_LINES - 1:])])
+    return text[:MAX_MESSAGE_LEN].rstrip()
+
+
+def seconds_until_allowed(
+    last_sent_at: float | None, now: float, *, min_interval: float = MIN_SEND_INTERVAL
+) -> float:
+    """Anty-flood: 0 = można wysłać; > 0 = ile sekund trzeba jeszcze odczekać od poprzedniej wiadomości.
+
+    Czasy z zegara monotonicznego (`time.monotonic()`), trzymane przez UI w session_state.
+    """
+    if last_sent_at is None:
+        return 0.0
+    return max(0.0, min_interval - (now - last_sent_at))
 
 
 def send_message(storage: Storage, room_id: str, user_id: str, text: str) -> ChatMessage | None:
-    """Waliduje i zapisuje wiadomość. Pusta wiadomość -> None (nic nie zapisujemy)."""
-    clean = text.strip()
+    """Czyści (sanitize_text) i zapisuje wiadomość. Pusta po czyszczeniu -> None (nic nie zapisujemy)."""
+    clean = sanitize_text(text)
     if not clean:
         return None
-    return storage.post_message(room_id, user_id, clean[:MAX_MESSAGE_LEN])
+    return storage.post_message(room_id, user_id, clean)
 
 
 def room_title(storage: Storage, room_id: str) -> str:

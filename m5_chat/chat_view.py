@@ -18,8 +18,8 @@ from collections.abc import Iterable
 import streamlit as st
 
 from m5_chat.service import (
-    BUFFER_LIMIT, attendance_counts, css_string, escape_markdown, group_messages, refresh_messages, room_title,
-    safe_avatar_src, send_message, set_attendance,
+    BUFFER_LIMIT, MAX_MESSAGE_LEN, attendance_counts, css_string, escape_markdown, group_messages,
+    refresh_messages, room_title, safe_avatar_src, seconds_until_allowed, send_message, set_attendance,
 )
 from shared import state
 from shared.config import CHAT_POLL_SECONDS, FEATURES
@@ -120,7 +120,8 @@ def render_chat_room(storage: Storage, user: User, room_id: str, *, height: int 
     with col_back:
         st.button("← Mapa", on_click=state.go_to, args=(View.MAP,), key="m5_back")
     with col_title:
-        st.markdown(f"### {room_title(storage, room_id)}")
+        # Tytuł eventu (scraper, formularz M2) i imiona w DM to dane z zewnątrz -> bez markdownu.
+        st.markdown(f"### {escape_markdown(room_title(storage, room_id))}")
 
     buf_key, show_key = f"m5_buf_{room_id}", f"m5_show_{room_id}"
     # Ten kod NIE wykonuje się w tickach fragmentu, tylko przy pełnym rerunie (wejście do pokoju,
@@ -130,6 +131,14 @@ def render_chat_room(storage: Storage, user: User, room_id: str, *, height: int 
     @st.fragment(run_every=CHAT_POLL_SECONDS)
     def _live_chat() -> None:
         started = time.perf_counter()
+        # Okno wiadomości rezerwujemy NAD polem wpisywania, ale wypełniamy je dopiero po obsłudze wysyłki:
+        # nowa wiadomość jest widoczna w tym samym przebiegu, bez dodatkowego st.rerun().
+        # autoscroll trzyma dół tylko, gdy użytkownik sam nie przewinął w górę. Odstępy grup daje CSS (gap=None).
+        chat_box = st.container(height=height, autoscroll=True, gap=None)
+        text = st.chat_input("Napisz wiadomość…", key=f"m5_input_{room_id}", max_chars=MAX_MESSAGE_LEN)
+        if text:
+            _send_with_limit(storage, room_id, user.id, text)
+
         buffer = refresh_messages(storage, room_id, st.session_state.get(buf_key, []))
         st.session_state[buf_key] = buffer
         visible = buffer[-st.session_state.get(show_key, SHOW_STEP):]
@@ -138,8 +147,7 @@ def render_chat_room(storage: Storage, user: User, room_id: str, *, height: int 
         _inject_css(a for a in authors.values() if a.id != user.id)   # własny awatar nie jest wyświetlany
 
         opened_user_id: str | None = None
-        # autoscroll trzyma dół tylko, gdy użytkownik sam nie przewinął w górę. Odstępy grup daje CSS (gap=None).
-        with st.container(height=height, autoscroll=True, gap=None):
+        with chat_box:
             if len(visible) < len(buffer):
                 st.button(
                     "⬆ Pokaż starsze", key=f"m5_older_{room_id}", type="tertiary",
@@ -157,11 +165,6 @@ def render_chat_room(storage: Storage, user: User, room_id: str, *, height: int 
             state.go_to(View.PROFILE_VIEW, user_id=opened_user_id)
             st.rerun()  # pełny rerun: wybór widoku (app.py) jest poza fragmentem
 
-        text = st.chat_input("Napisz wiadomość…", key=f"m5_input_{room_id}", max_chars=500)
-        if text:
-            send_message(storage, room_id, user.id, text)
-            st.rerun(scope="fragment")
-
         st.session_state["m5_tick_ms"] = tick_ms = (time.perf_counter() - started) * 1000
         if st.query_params.get("m5_debug"):
             st.caption(f"⏱ tick {tick_ms:.1f} ms · bufor {len(buffer)} · widocznych {len(visible)}")
@@ -171,6 +174,25 @@ def render_chat_room(storage: Storage, user: User, room_id: str, *, height: int 
 
 def _show_more(show_key: str, shown: int) -> None:
     st.session_state[show_key] = shown + SHOW_STEP
+
+
+def _send_with_limit(storage: Storage, room_id: str, user_id: str, text: str) -> bool:
+    """Wysyła wiadomość, o ile sesja nie przekroczyła limitu (1 na sekundę). True = zapisano.
+
+    Zablokowanej treści nie da się wstawić z powrotem do st.chat_input, więc pokazujemy ją w komunikacie.
+    """
+    now = time.monotonic()
+    if seconds_until_allowed(st.session_state.get("m5_last_sent_at"), now) > 0:
+        flat = " ".join(text.split())
+        excerpt = flat if len(flat) <= 60 else flat[:60] + "…"
+        st.toast(
+            f"Zwolnij 🙂 Maks. 1 wiadomość na sekundę — nie wysłano: „{escape_markdown(excerpt)}”", icon="⏳",
+        )
+        return False
+    if send_message(storage, room_id, user_id, text) is None:
+        return False
+    st.session_state["m5_last_sent_at"] = now
+    return True
 
 
 _STATUS_LABELS = {AttendanceStatus.GOING: "🙋 Idę!", AttendanceStatus.INTERESTED: "⭐ Interesuje mnie"}

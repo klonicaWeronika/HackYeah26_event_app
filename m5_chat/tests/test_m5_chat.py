@@ -6,8 +6,9 @@ from datetime import datetime, timedelta
 import pytest
 
 from m5_chat.service import (
-    MAX_MESSAGE_LEN, POLL_OVERLAP, css_string, escape_markdown, group_messages, merge_messages, refresh_messages,
-    room_title, safe_avatar_src, send_message,
+    MAX_MESSAGE_LEN, MAX_MESSAGE_LINES, POLL_OVERLAP, css_string, escape_markdown, group_messages,
+    merge_messages, refresh_messages, room_title, safe_avatar_src, sanitize_text, seconds_until_allowed,
+    send_message,
 )
 from shared.models import ChatMessage, dm_room_id, event_room_id
 from shared.storage import Storage
@@ -149,3 +150,31 @@ def test_merge_messages_dedupes_sorts_and_trims():
     assert merge_messages([b], [a]) == [a, b]
     buf = [a, b]
     assert merge_messages(buf, [a, b]) is buf
+
+
+def test_sanitize_text_drops_invisible_controls_but_keeps_content():
+    raw = "  <b>x</b> **y**\x00\x1b[31m\u202eabc\u2066  \r\n\r\n\r\n\r\nzażółć 👩\u200d👧\tok  "
+    # HTML i markdown zostają (widok wyświetla je dosłownie); znika: NUL, ESC, bidi override/isolate,
+    # nadmiar pustych linii i spacji na końcach linii; łącznik emoji (ZWJ) zostaje
+    assert sanitize_text(raw) == "<b>x</b> **y**[31mabc\n\nzażółć 👩\u200d👧\tok"
+
+
+def test_sanitize_text_limits_lines_and_length():
+    lines = sanitize_text("\n".join(str(i) for i in range(30))).split("\n")
+    assert len(lines) == MAX_MESSAGE_LINES
+    assert lines[-1] == " ".join(str(i) for i in range(MAX_MESSAGE_LINES - 1, 30))
+    assert len(sanitize_text("ż" * 2000)) == MAX_MESSAGE_LEN
+
+
+def test_send_message_rejects_text_made_only_of_controls(storage: Storage):
+    room = event_room_id("e_ceramika")
+    assert send_message(storage, room, "u_zosia", "\x00\u202e \n\t ") is None
+    assert storage.count_messages(room) == 0
+
+
+def test_seconds_until_allowed():
+    assert seconds_until_allowed(None, 100.0) == 0
+    assert seconds_until_allowed(100.0, 100.4) == pytest.approx(0.6)
+    assert seconds_until_allowed(100.0, 101.0) == 0
+    assert seconds_until_allowed(100.0, 250.0) == 0
+

@@ -1,10 +1,12 @@
 """M5 — testy widoku czatu przez streamlit AppTest (izolowana baza w RAM, bez przeglądarki)."""
 
+import time
+
 import pytest
 from streamlit.testing.v1 import AppTest
 
 from m5_chat.chat_view import SHOW_STEP, _avatar_key_prefix
-from m5_chat.service import escape_markdown
+from m5_chat.service import MAX_MESSAGE_LEN, escape_markdown, room_title
 from shared.config import FEATURES
 from shared.models import User, event_room_id
 from shared.state import View
@@ -142,3 +144,41 @@ def test_tick_time_shown_only_in_debug_mode(chat_app: AppTest):
     at.query_params["m5_debug"] = "1"
     at.run()
     assert any("tick" in c.value for c in at.caption)
+
+
+def _send(at: AppTest, text: str) -> AppTest:
+    return at.chat_input(key=f"m5_input_{ROOM}").set_value(text).run()
+
+
+def _allow_next_send(at: AppTest) -> None:
+    at.session_state["m5_last_sent_at"] = time.monotonic() - 5     # minęła ponad sekunda
+
+
+def test_typed_html_and_markdown_are_stored_raw_and_shown_literally(chat_app: AppTest, storage: Storage):
+    at = chat_app.run()
+    assert at.chat_input(key=f"m5_input_{ROOM}").proto.max_chars == MAX_MESSAGE_LEN
+    _send(at, "<b>x</b>")
+    _allow_next_send(at)
+    _send(at, "**x**")
+    assert [m.text for m in storage.list_messages(ROOM)[-2:]] == ["<b>x</b>", "**x**"]
+    mine = next(h for h in _html_blocks(at) if "m5-mine" in h)
+    assert "&lt;b&gt;x&lt;/b&gt;" in mine and "**x**" in mine and "<b>" not in mine
+
+
+def test_flood_is_blocked_with_message(chat_app: AppTest, storage: Storage):
+    at = chat_app.run()
+    _send(at, "raz")
+    _send(at, "dwa")                                           # < 1 s po poprzedniej
+    assert [m.text for m in storage.list_messages(ROOM)[-1:]] == ["raz"]
+    assert any("Zwolnij" in t.value and "dwa" in t.value for t in at.toast)
+    _allow_next_send(at)
+    _send(at, "trzy")
+    assert [m.text for m in storage.list_messages(ROOM)[-2:]] == ["raz", "trzy"]
+
+
+def test_room_title_from_external_data_is_not_markdown(chat_app: AppTest, storage: Storage):
+    event = storage.get_event("e_jazz_alchemia")
+    storage.upsert_event(event.copy_with(title="**Boss** [klik](javascript:x) <b>y</b>"))
+    at = chat_app.run()
+    expected = f"### {escape_markdown(room_title(storage, ROOM))}"
+    assert expected in [m.value for m in at.markdown]
