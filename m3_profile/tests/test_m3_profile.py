@@ -1,5 +1,7 @@
 """M3 — testy profilu (logika + bezpieczeństwo HTML)."""
 
+import pytest
+
 from m3_profile.views import avatar_html, user_card_html
 from shared.models import MatchResult, User
 from shared.storage import Storage
@@ -92,3 +94,59 @@ def test_event_row_escapes_title_and_venue():
                   start=datetime(2030, 1, 1, 20), lat=50.06, lon=19.94)
     out = _event_row_html(event, hidden=True)
     assert "<img" not in out and "<b>Klub" not in out and "ukryte w dopasowaniach" in out
+
+
+# --------------------------------------------------------------------------- #
+# M3-07: awatar odporny na brak internetu / zły URL (bez JavaScriptu)
+# --------------------------------------------------------------------------- #
+
+def test_avatar_photo_is_a_layer_over_initials_not_an_img():
+    """Zdjęcie jako tło warstwy nad inicjałami: gdy się nie wczyta, widać inicjały (nie „zepsuty obrazek”)."""
+    out = avatar_html(User(id="u_o", name="Ola Nowak", avatar_url="https://i.pravatar.cc/150?img=5"))
+    assert "<img" not in out
+    assert out.index("ON") < out.index("url('https://i.pravatar.cc/150?img=5')")   # inicjały pod warstwą
+    assert "position:absolute" in out and "position:relative" in out
+
+
+def test_uploaded_data_uri_is_used_as_photo():
+    uri = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ=="
+    assert f"url('{uri}')" in avatar_html(User(id="u_o", name="Ola", avatar_url=uri))
+
+
+@pytest.mark.parametrize("url", [
+    "javascript:alert(1)",
+    "data:text/html;base64,PHNjcmlwdD4=",
+    "data:image/svg+xml;base64,PHN2Zz4=",
+    "data:image/jpeg;base64,abc'onload",
+    "/static/x.png",
+    "ftp://example.com/x.png",
+    "",
+    "   ",
+])
+def test_unsafe_or_unknown_urls_fall_back_to_initials(url):
+    out = avatar_html(User(id="u_o", name="Ola", avatar_url=url or None))
+    assert "url(" not in out and ">O<" in out
+
+
+def test_url_cannot_break_out_of_css():
+    evil = "https://x.pl/a.jpg') ; background:red; x:url('y\"><script>alert(1)</script>"
+    out = avatar_html(User(id="u_o", name="Ola", avatar_url=evil))
+    assert out.count("url('") == 1 and out.count("')") == 1             # jedyne url('…') to nasze
+    inside = out.split("url('", 1)[1].split("')", 1)[0]
+    assert not set("'\"()<>\\ ") & set(inside), inside                  # nic, czym da się wyjść z url('…')
+    assert "<script>" not in out
+
+
+def test_initials_are_readable_on_every_background():
+    from m3_profile.views import _AVATAR_COLORS, _initials_text_color
+
+    def contrast(a: str, b: str) -> float:
+        def lum(h: str) -> float:
+            c = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+            c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+            return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+        hi, lo = sorted((lum(a), lum(b)), reverse=True)
+        return (hi + 0.05) / (lo + 0.05)
+
+    for bg in _AVATAR_COLORS:
+        assert contrast(bg, _initials_text_color(bg)) >= 3.0, bg     # duży, pogrubiony tekst (WCAG AA)

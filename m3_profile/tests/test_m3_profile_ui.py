@@ -80,7 +80,7 @@ def test_uploader_is_outside_the_form(editor):
 def test_upload_shows_preview_but_saves_only_on_submit(editor, ui_storage):
     before = ui_storage.get_user(DEMO_USER_ID).avatar_url
     _upload(editor, _jpeg())
-    assert 'src="data:image/jpeg;base64,' in _preview_html(editor)
+    assert "url('data:image/jpeg;base64," in _preview_html(editor)
     assert any("Podgląd" in c.value for c in editor.caption)
     assert not editor.error
     assert ui_storage.get_user(DEMO_USER_ID).avatar_url == before     # jeszcze nie zapisane
@@ -110,7 +110,7 @@ def test_bad_file_shows_polish_error_without_exception(editor, ui_storage, data,
 def test_remove_photo_then_save_falls_back_to_initials(editor, ui_storage):
     _button(editor, "🗑️ Usuń zdjęcie").click()
     _run(editor)
-    assert "<img" not in _preview_html(editor)                       # podgląd: inicjały
+    assert "url(" not in _preview_html(editor)                       # podgląd: same inicjały
     _button(editor, "Zapisz").click()
     _run(editor)
     assert ui_storage.get_user(DEMO_USER_ID).avatar_url is None

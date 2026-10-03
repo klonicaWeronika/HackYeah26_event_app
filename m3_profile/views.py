@@ -8,7 +8,9 @@ Zakres do zrobienia: m3_profile/TASK_SPEC.md
 from __future__ import annotations
 
 import html
+import re
 import zlib
+from urllib.parse import quote
 
 import streamlit as st
 
@@ -31,17 +33,49 @@ def _md_escape(text: str) -> str:
     return "".join(f"\\{c}" if c in _MD_SPECIAL else c for c in text)
 
 
+_SAFE_DATA_URI = re.compile(r"^data:image/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$")
+_URL_SAFE_CHARS = ":/?#[]@!$&*+,;=%~-._"   # bez ' " ( ) \ i spacji -> URL nie wyjdzie z CSS url('…')
+
+
+def _avatar_image_url(url: str | None) -> str | None:
+    """URL zdjęcia bezpieczny do CSS `url('…')` albo None (-> same inicjały).
+
+    Biała lista: http(s) oraz data:image/(jpeg|png|webp|gif);base64 (z avatar_from_upload).
+    """
+    url = (url or "").strip()
+    if _SAFE_DATA_URI.match(url):
+        return url
+    if url.lower().startswith(("http://", "https://")):
+        return quote(url, safe=_URL_SAFE_CHARS)
+    return None
+
+
+def _initials_text_color(background: str) -> str:
+    """Biały albo grafitowy tekst inicjałów — ten, który ma lepszy kontrast z tłem."""
+    r, g, b = (int(background[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    luminance = 0.2126 * r ** 2.2 + 0.7152 * g ** 2.2 + 0.0722 * b ** 2.2
+    return "#1F1F1F" if luminance > 0.3 else "#FFFFFF"
+
+
 def avatar_html(user: User, size: int = 40) -> str:
-    """Okrągły awatar (zdjęcie albo inicjały). Bezpieczny: escapuje dane użytkownika."""
-    style = f"width:{size}px;height:{size}px;border-radius:50%;flex-shrink:0;"
-    if user.avatar_url:
-        src = html.escape(user.avatar_url, quote=True)
-        return f'<img src="{src}" alt="" style="{style}object-fit:cover;">'
+    """Okrągły awatar: inicjały zawsze pod spodem, zdjęcie (jeśli jest) jako warstwa na wierzchu.
+
+    Bez JavaScriptu — Streamlit wycina `onerror` z <img>, więc zwykły <img> przy braku internetu
+    albo złym URL pokazuje „zepsuty obrazek”. Tu zdjęcie jest TŁEM warstwy (`background-image`):
+    gdy się nie wczyta, przeglądarka nic nie rysuje i widać inicjały. Dane użytkownika są escapowane.
+    """
     color = _AVATAR_COLORS[zlib.crc32(user.id.encode()) % len(_AVATAR_COLORS)]
+    photo = ""
+    if src := _avatar_image_url(user.avatar_url):
+        photo = (
+            '<div style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:50%;'
+            f"background:center/cover no-repeat url('{html.escape(src, quote=True)}');\"></div>"
+        )
     return (
-        f'<div style="{style}background:{color};color:#fff;display:flex;align-items:center;'
-        f'justify-content:center;font-weight:600;font-size:{size * 0.4:.0f}px;">'
-        f"{html.escape(user.initials)}</div>"
+        f'<div aria-hidden="true" style="position:relative;overflow:hidden;width:{size}px;height:{size}px;'
+        f"border-radius:50%;flex-shrink:0;background:{color};color:{_initials_text_color(color)};"
+        f"display:flex;align-items:center;justify-content:center;font-weight:600;"
+        f'font-size:{size * 0.4:.0f}px;">{html.escape(user.initials)}{photo}</div>'
     )
 
 
