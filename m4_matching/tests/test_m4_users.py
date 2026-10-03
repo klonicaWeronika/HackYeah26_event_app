@@ -122,3 +122,17 @@ def test_user_without_tags_and_events_gets_nothing(empty_storage: Storage):
 def test_limit_returns_prefix(storage: Storage, demo_user: User, limit: int):
     full = _ids(storage, demo_user, limit=100)
     assert _ids(storage, demo_user, limit=limit) == full[:limit]
+
+
+def test_hidden_everywhere_is_excluded(empty_storage: Storage):
+    """M3-08: „ukryj mnie we wszystkich dopasowaniach” = open_to_meet=False w KAŻDYM zapisie."""
+    store = empty_storage
+    me = _user(store, "u_me", "Ja", ["jazz"])
+    _user(store, "u_o", "Ona", ["jazz"])
+    _user(store, "u_new", "Nowy", ["jazz"])                           # bez zapisów → widoczny
+    for eid in ("e_a", "e_b"):
+        store.join_event("u_o", _event(store, eid), open_to_meet=False)
+    assert _ids(store, me) == ["u_new"]
+
+    store.join_event("u_o", "e_b", open_to_meet=True)                 # widoczna choć w jednym zapisie
+    assert set(_ids(store, me)) == {"u_new", "u_o"}

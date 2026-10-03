@@ -294,6 +294,13 @@ def match_for_event(
 # --------------------------------------------------------------------------- #
 
 
+def _hidden_everywhere(storage: Storage, user_id: str) -> bool:
+    """M3-08 („ukryj mnie we wszystkich dopasowaniach”) nie ma pola w User — ustawia
+    open_to_meet=False we WSZYSTKICH zapisach. Osoba bez zapisów nie jest ukryta."""
+    attendance = storage.list_user_attendance(user_id)
+    return bool(attendance) and not any(a.open_to_meet for a in attendance)
+
+
 def match_users(
     storage: Storage, user: User, *, limit: int = 10, weights: Mapping[str, float] | None = None,
 ) -> list[MatchResult]:
@@ -301,9 +308,10 @@ def match_users(
 
     Sygnały jak w match_for_event bez kontekstu eventu: `tags` (Jaccard IDF) i `co_attendance`
     (wszystkie wspólne wydarzenia, gdzie oboje są widoczni) — event_fit i status są nieobecne,
-    więc wagi normalizują się po tych dwóch. Pomijamy osoby, z którymi nic nie łączy (score 0).
+    więc wagi normalizują się po tych dwóch. Pomijamy osoby, z którymi nic nie łączy (score 0),
+    i osoby ukryte we wszystkich swoich zapisach (M3-08).
     """
-    others = [u for u in storage.list_users() if u.id != user.id]
+    others = [u for u in storage.list_users() if u.id != user.id and not _hidden_everywhere(storage, u.id)]
     idf = build_idf(storage.list_users())
     co_events = _shared_events(storage, user.id, None)
     past_ids = _past_event_ids(storage, co_events)

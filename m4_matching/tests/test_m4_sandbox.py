@@ -41,11 +41,24 @@ def test_weight_sliders_change_ranking(sandbox: AppTest):
 
 
 def test_rec_weight_sliders_change_recommendations(sandbox: AppTest):
-    def top_rec() -> str:
-        return list(sandbox.dataframe[1].value["event"])[0]
+    """Tabela sandboxa = recommend_events z wagami z suwaków. Bez tytułów na sztywno: nowa baza
+    plikowa może zawierać też prawdziwe eventy ze snapshotu M2."""
+    from m4_matching.engine import REC_WEIGHTS, recommend_events
+    from shared.storage import get_storage
 
-    assert top_rec() == "Oprowadzanie kuratorskie: Wyspiański"       # tagi + 3 podobne osoby
+    store = get_storage()                                             # ta sama baza, co w sandboxie
+    ola = store.get_user("u_ola")
+
+    def titles(weights) -> list[str]:
+        return [r.event.title for r in recommend_events(store, ola, weights=weights)]
+
+    def table() -> list[str]:
+        return list(sandbox.dataframe[1].value["event"])
+
+    tags_only = {**REC_WEIGHTS, "social": 0.0}
+    assert titles(None) != titles(tags_only)                          # suwak ma realny wpływ
+    assert table() == titles(None)
     sandbox.slider(key="m4_rw_social").set_value(0.0)
     sandbox.run()
     assert not sandbox.exception, sandbox.exception
-    assert top_rec() == "Przedpremierowy pokaz + Q&A z reżyserką"     # same tagi: pełne pokrycie „kino”
+    assert table() == titles(tags_only)
