@@ -13,6 +13,8 @@ Pomocnicze (nowe):
     match_reason(breakdown) -> str            uzasadnienie PL ≤ 60 znaków (M4-03)
     plural_pl(n, one, few, many) -> str       odmiana rzeczownika po liczebniku
     recommend_breakdown(storage, user, *, weights=None, now=None) -> list[RecBreakdown]  (sandbox, M4-05)
+    recommend_top(storage, user, *, limit=5) -> list[RecBreakdown]   top po różnorodności (widget, M4-09)
+    attendance_summary(total, matching) -> str   „Idzie 5 osób, w tym 2 pasujące”
 
 Model scoringu:
     score = Σ wᵢ·sᵢ / Σ wᵢ   (po sygnałach obecnych w danym kontekście), przycięte do [0, 1].
@@ -556,11 +558,31 @@ def recommend_events(
 
     `weights` — opcjonalne nadpisanie REC_WEIGHTS (sandbox); `now` — punkt odniesienia (testy).
     """
-    ranked = recommend_breakdown(storage, user, weights=weights, now=now)
     return [
         Recommendation(event=r.event, score=r.score, reason=recommendation_reason(r))
-        for r in _diversify(ranked, limit)
+        for r in recommend_top(storage, user, limit=limit, weights=weights, now=now)
     ]
+
+
+def recommend_top(
+    storage: Storage, user: User, *, limit: int = 5, weights: Mapping[str, float] | None = None,
+    now: datetime | None = None,
+) -> list[RecBreakdown]:
+    """To samo co recommend_events, ale z rozbiciem (widget M4-09 pokazuje podobne osoby)."""
+    return _diversify(recommend_breakdown(storage, user, weights=weights, now=now), limit)
+
+
+def attendance_summary(total: int, matching: int) -> str:
+    """„Idzie 5 osób, w tym 2 pasujące” — `total` wszyscy zapisani, `matching` podobni (≤ total)."""
+    if total <= 0:
+        return "Nikt się jeszcze nie zapisał"
+    verb = plural_pl(total, "Idzie", "Idą", "Idzie")
+    if matching > 0 and matching >= total:       # wszyscy pasują → bez „w tym”
+        return f"{verb} {total} " + plural_pl(total, "pasująca osoba", "pasujące osoby", "pasujących osób")
+    text = f"{verb} {total} " + plural_pl(total, "osoba", "osoby", "osób")
+    if matching > 0:
+        text += f", w tym {matching} " + plural_pl(matching, "pasująca", "pasujące", "pasujących")
+    return text
 
 
 if __name__ == "__main__":  # python -m m4_matching.engine  — szybki podgląd na mockach
