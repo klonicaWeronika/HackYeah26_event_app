@@ -13,15 +13,23 @@ from shared.storage import Storage
 ROOM = event_room_id("e_jazz_alchemia")   # mocki: msg_seed_000 = Kuba, msg_seed_001 = Bartek
 
 
-def _chat_app():
+def _chat_app(event_id: str = "e_jazz_alchemia"):
     from m5_chat.chat_view import render_chat_room
     from shared import state
     from shared.models import event_room_id
     from shared.storage import get_storage
 
     storage = get_storage()
-    state.init()
-    render_chat_room(storage, storage.get_user(state.current_user_id()), event_room_id("e_jazz_alchemia"))
+    state.init()   # zalogowana: u_ola (domyślna)
+    render_chat_room(storage, storage.get_user(state.current_user_id()), event_room_id(event_id))
+
+
+def _html_blocks(at: AppTest) -> list[str]:
+    return [el.value for el in at.get("html")]
+
+
+def _button_keys(at: AppTest) -> set[str]:
+    return {b.key for b in at.button}
 
 
 @pytest.fixture
@@ -64,3 +72,38 @@ def test_author_name_is_escaped_in_button_label(chat_app: AppTest, storage: Stor
     msg = storage.post_message(ROOM, evil.id, "<b>x</b>")
     at = chat_app.run()
     assert at.button(key=f"m5_name_{msg.id}").label == f"**{escape_markdown(evil.name)}**"
+
+
+def test_own_messages_are_right_aligned_without_avatar(chat_app: AppTest, storage: Storage):
+    m1 = storage.post_message(ROOM, "u_ola", "pierwsza")
+    m2 = storage.post_message(ROOM, "u_ola", "druga")
+    at = chat_app.run()
+    mine = [h for h in _html_blocks(at) if "m5-mine" in h]
+    assert len(mine) == 1 and "pierwsza" in mine[0] and "druga" in mine[0]
+    keys = _button_keys(at)
+    assert not {f"m5_name_{m1.id}", f"m5_name_{m2.id}"} & keys
+    assert not any(k.startswith(_avatar_key_prefix("u_ola")) for k in keys)
+
+
+def test_consecutive_messages_of_one_author_share_one_header(chat_app: AppTest, storage: Storage):
+    k1 = storage.post_message(ROOM, "u_kuba", "raz")
+    k2 = storage.post_message(ROOM, "u_kuba", "dwa")
+    at = chat_app.run()
+    keys = _button_keys(at)
+    assert f"m5_name_{k1.id}" in keys and f"m5_name_{k2.id}" not in keys
+    assert any("raz" in h and "dwa" in h and "m5-mine" not in h for h in _html_blocks(at))
+
+
+def test_message_text_is_rendered_literally(chat_app: AppTest, storage: Storage):
+    storage.post_message(ROOM, "u_kuba", "<b>x</b> **y** <img src=x onerror=alert(1)>")
+    at = chat_app.run()
+    block = next(h for h in _html_blocks(at) if "**y**" in h)
+    assert "&lt;b&gt;x&lt;/b&gt; **y** &lt;img src=x onerror=alert(1)&gt;" in block
+    assert "<b>" not in block and "<img" not in block
+
+
+def test_empty_room_shows_placeholder(storage: Storage, monkeypatch):
+    monkeypatch.setattr("shared.storage._default_storage", storage)
+    at = AppTest.from_function(_chat_app, kwargs={"event_id": "e_ceramika"}, default_timeout=30).run()
+    assert not at.exception, at.exception
+    assert any("Jeszcze cisza" in h for h in _html_blocks(at))

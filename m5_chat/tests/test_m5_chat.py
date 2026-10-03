@@ -1,11 +1,14 @@
 """M5 — testy logiki czatu (bez UI)."""
 
 import string
+from datetime import datetime, timedelta
 
 import pytest
 
-from m5_chat.service import MAX_MESSAGE_LEN, escape_markdown, room_title, safe_avatar_src, send_message
-from shared.models import dm_room_id, event_room_id
+from m5_chat.service import (
+    MAX_MESSAGE_LEN, escape_markdown, group_messages, room_title, safe_avatar_src, send_message,
+)
+from shared.models import ChatMessage, dm_room_id, event_room_id
 from shared.storage import Storage
 
 
@@ -63,3 +66,30 @@ def test_safe_avatar_src_accepts_images(url):
 ])
 def test_safe_avatar_src_rejects_unsafe(url):
     assert safe_avatar_src(url) is None
+
+
+def _msg(user_id: str, at: datetime) -> ChatMessage:
+    return ChatMessage(room_id=event_room_id("e_x"), user_id=user_id, text="hej", created_at=at)
+
+
+def _shape(groups: list[list[ChatMessage]]) -> list[tuple[str, int]]:
+    return [(g[0].user_id, len(g)) for g in groups]
+
+
+def test_group_messages_joins_consecutive_messages_of_one_author():
+    t = datetime(2026, 10, 3, 18, 0)
+    msgs = [_msg("u_kuba", t), _msg("u_kuba", t + timedelta(minutes=1)), _msg("u_ola", t + timedelta(minutes=2)),
+            _msg("u_kuba", t + timedelta(minutes=3)), _msg("u_kuba", t + timedelta(minutes=4))]
+    assert _shape(group_messages(msgs)) == [("u_kuba", 2), ("u_ola", 1), ("u_kuba", 2)]
+
+
+def test_group_messages_splits_on_long_pause_and_new_day():
+    t = datetime(2026, 10, 3, 23, 50)
+    msgs = [
+        _msg("u_kuba", t),                              # 23:50
+        _msg("u_kuba", t + timedelta(minutes=6)),       # 23:56 — przerwa 6 min > 5 -> nowa grupa
+        _msg("u_kuba", t + timedelta(minutes=9)),       # 23:59 — ta sama grupa
+        _msg("u_kuba", t + timedelta(minutes=11)),      # 00:01 — tylko 2 min, ale nowy dzień -> nowa grupa
+    ]
+    assert _shape(group_messages(msgs)) == [("u_kuba", 1), ("u_kuba", 2), ("u_kuba", 1)]
+    assert group_messages([]) == []
