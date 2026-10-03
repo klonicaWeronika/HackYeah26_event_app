@@ -94,8 +94,8 @@ def test_upload_shows_preview_but_saves_only_on_submit(editor, ui_storage):
 
 
 @pytest.mark.parametrize("data, fragment", [
-    (b"to nie jest obraz", "uszkodzony"),
-    (b"\xff" * (5 * 1024 * 1024 + 1), "5 MB"),
+    pytest.param(b"to nie jest obraz", "uszkodzony", id="uszkodzony-plik"),
+    pytest.param(b"\xff" * (5 * 1024 * 1024 + 1), "5 MB", id="za-duzy-5MB"),
 ])
 def test_bad_file_shows_polish_error_without_exception(editor, ui_storage, data, fragment):
     before = ui_storage.get_user(DEMO_USER_ID).avatar_url
