@@ -8,6 +8,16 @@ python -m m2_scraper.run --source all                  # wszystkie scrapery -> d
 streamlit run m2_scraper/sandbox.py                    # podgląd wyniku źródła bez zapisu
 ```
 
+### Demo offline (snapshot)
+
+```bash
+python -m shared.storage --reset                       # świeże mocki
+python -m m2_scraper.run --source seed                 # + prawdziwe eventy z data/seed_events.json, bez sieci
+```
+
+Odświeżenie snapshotu (z internetem; pierwsze pobranie Karnetu ~15 min, potem cache):
+`python -m m2_scraper.run --source all --dry-run --export data/seed_events.json` → commit pliku.
+
 ## Decyzja o źródłach (M2-01, 2026-10-03)
 
 | Rola | Źródło | Dostęp | Co daje |

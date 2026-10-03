@@ -3,7 +3,8 @@ M2 — pipeline zasilania bazy:  źródło.fetch() -> filtr Krakowa -> deduplika
 
     python -m m2_scraper.run --source karnet --dry-run
     python -m m2_scraper.run --source all              # wszystkie scrapery (sieć / cache HTML)
-    python -m m2_scraper.run --source manual
+    python -m m2_scraper.run --source all --export data/seed_events.json   # snapshot na demo
+    python -m m2_scraper.run --source seed             # demo offline: snapshot -> baza
 
 Działa równolegle z uruchomioną aplikacją: Storage w aplikacji wykryje zmianę
 (PRAGMA data_version) i przy następnym rerunie pokaże nowe pinezki.
@@ -12,7 +13,9 @@ Działa równolegle z uruchomioną aplikacją: Storage w aplikacji wykryje zmian
 from __future__ import annotations
 
 import argparse
+import json
 import logging
+from pathlib import Path
 
 from m2_scraper.base import EventSource
 from m2_scraper.dedupe import dedupe
@@ -36,8 +39,20 @@ def collect(source: EventSource) -> list[Event]:
     return list({e.id: e for e in kept}.values())
 
 
-def run(source_names: list[str], storage: Storage | None = None, *, dry_run: bool = False) -> int:
-    """Zbiera eventy ze wszystkich źródeł, usuwa duplikaty (także względem bazy) i zapisuje. Zwraca liczbę."""
+def export_events(events: list[Event], path: str | Path) -> None:
+    """Snapshot do JSON (lista obiektów Event) — wczytywany offline przez źródło "seed"."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = [e.model_dump(mode="json") for e in sorted(events, key=lambda e: (e.start, e.id))]
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+
+
+def run(source_names: list[str], storage: Storage | None = None, *, dry_run: bool = False,
+        export: str | Path | None = None) -> int:
+    """Zbiera eventy ze wszystkich źródeł, usuwa duplikaty (także względem bazy) i zapisuje. Zwraca liczbę.
+
+    `export` = ścieżka snapshotu JSON (zapisywany także przy dry_run).
+    """
     collected: list[Event] = []
     for name in source_names:
         events = collect(SOURCES[name]())
@@ -52,6 +67,9 @@ def run(source_names: list[str], storage: Storage | None = None, *, dry_run: boo
     events = dedupe(collected, existing)
     if len(events) < len(collected):
         log.info("Deduplikacja: pominięto %d duplikatów", len(collected) - len(events))
+    if export:
+        export_events(events, export)
+        log.info("Snapshot: %d eventów -> %s", len(events), export)
     if not dry_run and events:
         store.upsert_events(events)
     return len(events)
@@ -62,9 +80,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Zasilanie bazy wydarzeniami")
     parser.add_argument("--source", default="all", choices=["all", *SOURCES],
                         help=f"'all' = wszystkie scrapery ({', '.join(SCRAPERS)})")
-    parser.add_argument("--dry-run", action="store_true", help="tylko pobierz i zwaliduj, nie zapisuj")
+    parser.add_argument("--dry-run", action="store_true", help="tylko pobierz i zwaliduj, nie zapisuj do bazy")
+    parser.add_argument("--export", metavar="PATH", help="zapisz snapshot JSON (np. data/seed_events.json)")
     args = parser.parse_args()
 
     names = list(SCRAPERS) if args.source == "all" else [args.source]
-    count = run(names, dry_run=args.dry_run)
+    count = run(names, dry_run=args.dry_run, export=args.export)
     print(f"{'[dry-run] ' if args.dry_run else ''}Przetworzono {count} eventów ze źródeł: {', '.join(names)}")
