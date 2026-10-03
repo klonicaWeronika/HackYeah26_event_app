@@ -6,8 +6,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from m5_chat.service import (
-    can_access_room, dm_candidates, dm_participants, escape_markdown, list_conversations, room_title,
-    send_message,
+    can_access_room, dm_participants, escape_markdown, list_conversations, room_title, send_message,
 )
 from shared.config import FEATURES
 from shared.models import ChatMessage, dm_room_id, event_room_id
@@ -145,53 +144,8 @@ def test_open_dm_to_myself_does_nothing():
 
 
 # --------------------------------------------------------------------------- #
-# „✉️ Napisz” (prywatnie) w czacie wydarzenia + przycisk dla kart osób (M3)
+# Gotowy przycisk „Napisz” (DM) dla kart osób bez kontekstu wydarzenia
 # --------------------------------------------------------------------------- #
-
-JAZZ = event_room_id("e_jazz_alchemia")   # mocki: piszą Kuba, Bartek, Natalia; zapisani też Ola i Tomek
-
-
-def test_dm_candidates_authors_first_then_visible_attendees(storage: Storage):
-    storage.join_event("u_tomek", "e_jazz_alchemia", open_to_meet=False)   # ukrył się i nic nie pisał
-    storage.join_event("u_marta", "e_jazz_alchemia")                       # zapisana, widoczna
-    people = dm_candidates(storage, JAZZ, "u_ola", storage.list_messages(JAZZ))
-    assert [u.id for u in people] == ["u_natalia", "u_bartek", "u_kuba", "u_marta"]
-    assert dm_candidates(storage, OLA_KUBA, "u_ola", []) == []
-
-
-def _event_chat_app(allow_dm=None):
-    from m5_chat.chat_view import render_chat_room
-    from shared import state
-    from shared.models import event_room_id
-    from shared.storage import get_storage
-
-    storage = get_storage()
-    state.init()   # zalogowana: u_ola (domyślna)
-    render_chat_room(storage, storage.get_user(state.current_user_id()), event_room_id("e_jazz_alchemia"),
-                     allow_dm=allow_dm)
-
-
-def _dm_buttons(at: AppTest) -> list[str]:
-    return [b.key for b in at.button if b.key and b.key.startswith("m5_dmto_")]
-
-
-def test_write_privately_follows_feature_flag(storage: Storage, monkeypatch):
-    monkeypatch.setattr("shared.storage._default_storage", storage)
-    monkeypatch.setitem(FEATURES, "dm_chat", False)        # test nie zależy od wartości w shared/config.py
-    assert _dm_buttons(AppTest.from_function(_event_chat_app, default_timeout=30).run()) == []
-    monkeypatch.setitem(FEATURES, "dm_chat", True)
-    assert _dm_buttons(AppTest.from_function(_event_chat_app, default_timeout=30).run())
-
-
-def test_write_privately_from_event_chat_opens_dm(storage: Storage, monkeypatch):
-    monkeypatch.setattr("shared.storage._default_storage", storage)
-    at = AppTest.from_function(_event_chat_app, kwargs={"allow_dm": True}, default_timeout=30).run()
-    assert f"m5_dmto_{JAZZ}_u_ola" not in _dm_buttons(at)
-    at.button(key=f"m5_dmto_{JAZZ}_u_kuba").click().run()
-    assert not at.exception, at.exception
-    assert at.session_state["view"] == View.CHAT
-    assert at.session_state["chat_room_id"] == OLA_KUBA
-
 
 def _cards_app():
     from m5_chat.chat_view import render_dm_button

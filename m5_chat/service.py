@@ -4,11 +4,12 @@ M5 — logika czatu i interakcji (bez streamlit -> testowalna pytestem).
 Publiczne API (kontrakt):
     send_message(storage, room_id, user_id, text) -> ChatMessage | None
     room_title(storage, room_id, *, viewer_id=None) -> str
+    can_post(storage, room_id, user_id) -> bool
 Prywatne rozmowy (DM):
     dm_participants(room_id) -> tuple[str, str] | None
     can_access_room(room_id, user_id) -> bool
     list_conversations(storage, user_id) -> list[Conversation]
-    dm_candidates(storage, room_id, me_id, messages) -> list[User]
+Grupy na wydarzenia (czat grupy, zaproszenia, głosowania): m5_chat/groups.py
 Anty-spam i higiena tekstu:
     sanitize_text(text) -> str
     seconds_until_allowed(last_sent_at, now) -> float
@@ -33,6 +34,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import timedelta
 
+from m5_chat.groups import GroupRole, group_id_of_room, role_in
 from shared.models import Attendance, AttendanceStatus, ChatMessage, User, dm_room_id
 from shared.storage import Storage
 
@@ -80,16 +82,27 @@ def seconds_until_allowed(
 
 def send_message(storage: Storage, room_id: str, user_id: str, text: str) -> ChatMessage | None:
     """Czyści (sanitize_text) i zapisuje wiadomość. None (nic nie zapisujemy), gdy po czyszczeniu
-    jest pusta albo nadawca nie ma dostępu do pokoju (cudzy DM)."""
+    jest pusta albo nadawca nie może pisać w pokoju (cudzy DM, grupa, do której nie należy)."""
     clean = sanitize_text(text)
-    if not clean or not can_access_room(room_id, user_id):
+    if not clean or not can_post(storage, room_id, user_id):
         return None
     return storage.post_message(room_id, user_id, clean)
 
 
+def can_post(storage: Storage, room_id: str, user_id: str) -> bool:
+    """Czy osoba może pisać w pokoju: w grupie tylko członkowie (zaproszeni tylko czytają)."""
+    if (group_id := group_id_of_room(room_id)) is not None:
+        return role_in(storage.get_group(group_id), user_id) is GroupRole.MEMBER
+    return can_access_room(room_id, user_id)
+
+
 def room_title(storage: Storage, room_id: str, *, viewer_id: str | None = None) -> str:
-    """Tytuł pokoju do nagłówka. DM oglądany przez uczestnika (`viewer_id`) = imię rozmówcy."""
+    """Tytuł pokoju do nagłówka: nazwa wydarzenia (czat wydarzenia i grupy); DM oglądany
+    przez uczestnika (`viewer_id`) = imię rozmówcy."""
     kind, _, rest = room_id.partition(":")
+    if kind == "group":
+        group = storage.get_group(rest)
+        rest, kind = (group.event_id if group else ""), "event"
     if kind == "event":
         event = storage.get_event(rest)
         return f"{event.meta.emoji} {event.title}" if event else "Czat wydarzenia"
@@ -123,7 +136,8 @@ def dm_participants(room_id: str) -> tuple[str, str] | None:
 
 
 def can_access_room(room_id: str, user_id: str) -> bool:
-    """Czat wydarzenia jest otwarty dla wszystkich; DM tylko dla jego dwóch uczestników."""
+    """DM tylko dla jego dwóch uczestników; inne pokoje bez ograniczeń na poziomie ID
+    (dostęp do czatu grupy zależy od jej składu -> `can_post` / `groups.role_in`)."""
     if not room_id.startswith("dm:"):
         return True
     participants = dm_participants(room_id)
@@ -145,28 +159,6 @@ def list_conversations(storage: Storage, user_id: str) -> list[Conversation]:
             conversations.append(Conversation(room_id, other, last[-1]))
     conversations.sort(key=lambda c: c.last.created_at, reverse=True)
     return conversations
-
-
-def dm_candidates(
-    storage: Storage, room_id: str, me_id: str, messages: Iterable[ChatMessage], *, limit: int = 12
-) -> list[User]:
-    """Do kogo można napisać prywatnie z czatu wydarzenia: najpierw autorzy wiadomości (od najświeższej),
-    potem zapisani na wydarzenie, którzy zgodzili się na dopasowania (open_to_meet).
-
-    Bez mnie i bez nieznanych ID; kto ukrył się w dopasowaniach i nic nie napisał, nie trafia na listę.
-    Dla DM i innych pokojów -> [].
-    """
-    kind, _, event_id = room_id.partition(":")
-    if kind != "event":
-        return []
-    ordered: dict[str, None] = {}
-    for message in reversed(list(messages)):
-        ordered.setdefault(message.user_id, None)
-    for attendance in storage.list_attendees(event_id):
-        if attendance.open_to_meet:
-            ordered.setdefault(attendance.user_id, None)
-    ordered.pop(me_id, None)
-    return list(storage.get_users(ordered).values())[:limit]
 
 
 def escape_markdown(text: str) -> str:

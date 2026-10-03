@@ -18,8 +18,10 @@ from shared.models import (
     Category,
     ChatMessage,
     Event,
+    EventGroup,
+    GroupInvite,
     User,
-    event_room_id,
+    group_room_id,
 )
 
 DEMO_USER_ID = "u_ola"
@@ -215,14 +217,26 @@ _ATTENDANCE: dict[str, list[str]] = {
     "e_festiwal_literacki": ["u_marta"],
 }
 
-# (event_id, user_id, minut_temu, tekst)
+# Grupy na wydarzenia („ekipy”): (group_id, event_id, członkowie w kolejności dołączenia, minut_temu)
+_GROUPS: list[tuple] = [
+    ("g_jazz", "e_jazz_alchemia", ["u_kuba", "u_bartek", "u_natalia"], 120),
+    ("g_planszowki", "e_planszowki", ["u_michal", "u_lukas"], 360),
+    ("g_fotospacer", "e_fotospacer", ["u_zosia", "u_natalia"], 720),
+]
+# Wysłane zaproszenia (cała grupa za): (group_id, zapraszana, zapraszający, minut_temu).
+# Ola (persona demo) od startu ma zaproszenie do ekipy na jazz — pokazuje „Dołącz” bez przygotowań.
+_INVITES: list[tuple] = [
+    ("g_jazz", "u_ola", "u_kuba", 30),
+]
+
+# (group_id, user_id, minut_temu, tekst)
 _MESSAGES: list[tuple] = [
-    ("e_jazz_alchemia", "u_kuba", 95, "Ktoś idzie od początku? Będę ok. 19:50 przy barze 🎷"),
-    ("e_jazz_alchemia", "u_bartek", 80, "Ja dołączę koło 20:30, biorę aparat."),
-    ("e_jazz_alchemia", "u_natalia", 42, "Super, to do zobaczenia! Zajmijcie stolik przy scenie 🙏"),
-    ("e_planszowki", "u_michal", 300, "Biorę Azul i Wsiąść do Pociągu."),
-    ("e_planszowki", "u_lukas", 240, "I can bring Codenames (English version) 🙂"),
-    ("e_fotospacer", "u_zosia", 600, "Zbiórka przy Okrąglaku? Złota godzina jest ok. 16:30."),
+    ("g_jazz", "u_kuba", 95, "Ktoś idzie od początku? Będę ok. 19:50 przy barze 🎷"),
+    ("g_jazz", "u_bartek", 80, "Ja dołączę koło 20:30, biorę aparat."),
+    ("g_jazz", "u_natalia", 42, "Super, to do zobaczenia! Zajmijcie stolik przy scenie 🙏"),
+    ("g_planszowki", "u_michal", 300, "Biorę Azul i Wsiąść do Pociągu."),
+    ("g_planszowki", "u_lukas", 240, "I can bring Codenames (English version) 🙂"),
+    ("g_fotospacer", "u_zosia", 600, "Zbiórka przy Okrąglaku? Złota godzina jest ok. 16:30."),
 ]
 
 
@@ -232,6 +246,7 @@ class MockDataset:
     users: list[User] = field(default_factory=list)
     attendance: list[Attendance] = field(default_factory=list)
     messages: list[ChatMessage] = field(default_factory=list)
+    groups: list[EventGroup] = field(default_factory=list)
 
 
 def _at(today: date, day_offset: int, hhmm: str) -> datetime:
@@ -271,15 +286,28 @@ def build_mock_dataset(today: date | None = None, reference_now: datetime | None
             ))
 
     messages = [
-        ChatMessage(id=f"msg_seed_{i:03d}", room_id=event_room_id(event_id), user_id=user_id, text=text,
+        ChatMessage(id=f"msg_seed_{i:03d}", room_id=group_room_id(group_id), user_id=user_id, text=text,
                     created_at=reference_now - timedelta(minutes=minutes_ago))
-        for i, (event_id, user_id, minutes_ago, text) in enumerate(_MESSAGES)
+        for i, (group_id, user_id, minutes_ago, text) in enumerate(_MESSAGES)
     ]
 
-    return MockDataset(events=events, users=users, attendance=attendance, messages=messages)
+    groups = []
+    for group_id, event_id, members, minutes_ago in _GROUPS:
+        invites = [
+            GroupInvite(id=f"inv_seed_{gid}_{uid}", user_id=uid, invited_by=by, approvals=members,
+                        created_at=reference_now - timedelta(minutes=ago),
+                        sent_at=reference_now - timedelta(minutes=ago))
+            for gid, uid, by, ago in _INVITES if gid == group_id
+        ]
+        groups.append(EventGroup(
+            id=group_id, event_id=event_id, members=members, invites=invites, created_by=members[0],
+            created_at=reference_now - timedelta(minutes=minutes_ago),
+        ))
+
+    return MockDataset(events=events, users=users, attendance=attendance, messages=messages, groups=groups)
 
 
 if __name__ == "__main__":
     ds = build_mock_dataset()
     print(f"events={len(ds.events)} users={len(ds.users)} "
-          f"attendance={len(ds.attendance)} messages={len(ds.messages)}")
+          f"attendance={len(ds.attendance)} messages={len(ds.messages)} groups={len(ds.groups)}")

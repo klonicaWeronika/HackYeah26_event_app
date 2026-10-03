@@ -130,3 +130,24 @@ def test_cache_sees_writes_from_another_process(tmp_path):
     assert app_store.get_event("e_external") is not None
     app_store.close()
     scraper_store.close()
+
+
+def test_groups_snapshot_update_and_cascade(storage: Storage):
+    from shared.models import EventGroup
+
+    group = storage.get_group("g_jazz")
+    assert group.members == ["u_kuba", "u_bartek", "u_natalia"] and group.invite_for("u_ola").is_sent
+    assert [g.id for g in storage.list_member_groups("u_natalia")] == ["g_fotospacer", "g_jazz"]
+    assert [g.id for g in storage.list_invited_groups("u_ola")] == ["g_jazz"]
+
+    updated = storage.update_group("g_jazz", lambda g: g.copy_with(members=[*g.members, "u_tomek"]))
+    assert storage.get_group("g_jazz") == updated and "u_tomek" in updated.members     # snapshot unieważniony
+    assert storage.update_group("g_brak", lambda g: g) is None
+    assert storage.update_group("g_jazz", lambda g: None) is None and storage.get_group("g_jazz") is None
+
+    storage.upsert_group(EventGroup(id="g_tmp", event_id="e_rejs_kino", members=["u_ola"],
+                                    created_by="u_ola"))
+    assert [g.id for g in storage.list_groups("e_rejs_kino")] == ["g_tmp"]
+    assert storage.delete_event("e_rejs_kino") and storage.list_groups("e_rejs_kino") == []
+    storage.reset()
+    assert storage.get_group("g_jazz") is not None and storage.stats()["groups"] == 3

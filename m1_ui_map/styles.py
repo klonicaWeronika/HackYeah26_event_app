@@ -162,6 +162,13 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
   border: none; font-weight: 600;
 }
 .st-key-m1_actions [data-testid="stPopover"] button:hover {filter: brightness(1.15); color: var(--krk-surface-solid);}
+/* M5: skrzynka „Ekipy” — jasna pigułka jak „Dodaj wydarzenie”, z czymś do zrobienia -> kolor akcentu. */
+.st-key-m1_actions .st-key-m5_inbox button {
+  background: var(--krk-surface-solid); color: var(--krk-text); border: 1px solid var(--krk-line-strong);
+}
+.st-key-m1_actions .st-key-m5_inbox button:hover {filter: none; border-color: var(--krk-primary); color: var(--krk-primary);}
+.st-key-m1_actions .st-key-m5_inbox button[kind="primary"] {background: var(--krk-grad); color: #fff; border: none;}
+.st-key-m1_actions .st-key-m5_inbox button[kind="primary"]:hover {color: #fff; filter: brightness(1.05);}
 
 /* ============ Pasek kategorii (kółka z liczbą jak na job boardach) ============ */
 .st-key-m1_catbar {height: var(--krk-catbar); min-height: var(--krk-catbar); padding: 0 20px 4px; justify-content: center; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;}
@@ -402,11 +409,14 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
   text-transform: uppercase; color: var(--krk-muted); margin-top: 6px;
 }
 .m1-section::after {content: ""; flex: 1; height: 1px; background: var(--krk-line);}
-.st-key-m1_open_chat button {
+/* M5: wejście do czatu grupy (moja ekipa / nowa ekipa / zaproszenie) — główna akcja panelu. */
+[class*="st-key-m5_grp_open_"] button, [class*="st-key-m5_grp_new_"] button, [class*="st-key-m5_grp_view_"] button {
   border-radius: 12px; height: 44px; font-weight: 650; border: none; color: #fff; background: var(--krk-grad);
   box-shadow: 0 10px 22px -12px rgba(228, 87, 46, .9);
 }
-.st-key-m1_open_chat button:hover {color: #fff; filter: brightness(1.05);}
+[class*="st-key-m5_grp_open_"] button:hover, [class*="st-key-m5_grp_new_"] button:hover,
+[class*="st-key-m5_grp_view_"] button:hover {color: #fff; filter: brightness(1.05);}
+[class*="st-key-m5_grp_invite_"] {border-color: var(--krk-primary) !important; background: var(--krk-primary-soft);}
 .st-key-m1_right_body [data-testid="stLinkButton"] a {border-radius: 12px; height: 44px;}
 .st-key-m1_right_body h4 {font-size: 1rem; font-weight: 700; letter-spacing: -0.01em;}
 
@@ -447,6 +457,19 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 .m1-menu-user .m1-hello {font-size: 0.95rem; font-weight: 650;}
 .m1-sep {height: 1px; background: rgba(128, 128, 128, 0.2); margin: 0.35rem 0;}
 .st-key-m1_menu_reset [data-testid="stBaseButton-tertiary"] {color: #D9431A;}
+
+/* M5: skrzynka „Ekipy” i lista „Idą / Interesuje ich” — pozycje jak w menu. */
+[data-testid="stPopoverBody"]:has([class*="st-key-m5_pop_"]) {min-width: 320px; max-width: 400px; padding: 0.4rem; border-radius: 16px;}
+[class*="st-key-m5_pop_"] [data-testid="stBaseButton-tertiary"] {
+  width: 100%; justify-content: flex-start; padding: 0.45rem 0.6rem; border-radius: 0.6rem; min-height: 0; text-align: left;
+}
+[class*="st-key-m5_pop_"] button > div {justify-content: flex-start;}
+[class*="st-key-m5_pop_"] [data-testid="stBaseButton-tertiary"]:hover {background: rgba(128, 128, 128, 0.12);}
+[class*="st-key-m5_pop_"] [data-testid="stCaptionContainer"] {padding: 0.25rem 0.6rem;}
+.m5-pop-head {
+  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.55;
+  padding: 0.55rem 0.6rem 0.15rem;
+}
 
 /* Popover lokalizacji. */
 [data-testid="stPopoverBody"]:has(.st-key-m1_loc_body) {width: 380px; padding: 0.9rem 1rem; border-radius: 18px;}

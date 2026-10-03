@@ -227,12 +227,56 @@ class Recommendation(_Model):
     reason: str = ""
 
 
+class MessageKind(str, Enum):
+    TEXT = "text"                           # zwykła wiadomość osoby
+    SYSTEM = "system"                       # komunikat grupy, np. „Kuba dołącza do grupy”
+    VOTE = "vote"                           # karta zaproszenia/głosowania (ref = GroupInvite.id)
+
+
 class ChatMessage(_Model):
     id: str = Field(default_factory=lambda: new_id("msg"))
-    room_id: str                            # patrz event_room_id() / dm_room_id()
+    room_id: str                            # patrz event_room_id() / dm_room_id() / group_room_id()
     user_id: str
     text: str = Field(min_length=1, max_length=1000)
     created_at: datetime = Field(default_factory=lambda: datetime.now())
+    kind: MessageKind = MessageKind.TEXT
+    ref: str | None = None                  # VOTE: id zaproszenia, którego dotyczy karta
+
+
+class GroupInvite(_Model):
+    """Zaproszenie do grupy: najpierw głosują członkowie, potem odpowiada zaproszona osoba.
+
+    `approvals` — członkowie „za” (zapraszający od razu). Komplet głosów -> `sent_at` (zaproszenie
+    wysłane i zostaje wysłane, nawet gdy do grupy dojdzie ktoś nowy).
+    """
+
+    id: str = Field(default_factory=lambda: new_id("inv"))
+    user_id: str                            # zapraszana osoba
+    invited_by: str
+    approvals: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=now)
+    sent_at: datetime | None = None
+
+    @property
+    def is_sent(self) -> bool:
+        return self.sent_at is not None
+
+
+class EventGroup(_Model):
+    """Ekipa na wydarzenie: wspólny czat kilku osób (pokój `group_room_id(id)`).
+
+    Jedna osoba należy najwyżej do jednej grupy na dane wydarzenie (pilnuje tego M5).
+    """
+
+    id: str = Field(default_factory=lambda: new_id("g"))
+    event_id: str
+    members: list[str]                      # kolejność dołączenia = kolejność awatarów nad czatem
+    invites: list[GroupInvite] = Field(default_factory=list)
+    created_by: str
+    created_at: datetime = Field(default_factory=now)
+
+    def invite_for(self, user_id: str) -> GroupInvite | None:
+        return next((i for i in self.invites if i.user_id == user_id), None)
 
 
 def event_room_id(event_id: str) -> str:
@@ -243,6 +287,11 @@ def dm_room_id(user_a: str, user_b: str) -> str:
     """Pokój prywatny 1:1 — kolejność użytkowników nie ma znaczenia."""
     a, b = sorted((user_a, user_b))
     return f"dm:{a}:{b}"
+
+
+def group_room_id(group_id: str) -> str:
+    """Czat grupy na wydarzenie (EventGroup)."""
+    return f"group:{group_id}"
 
 
 # --------------------------------------------------------------------------- #
@@ -286,5 +335,6 @@ __all__ = [
     "now", "new_id", "stable_id", "normalize_tag", "fold_text",
     "Category", "CategoryMeta", "CATEGORY_META", "INTEREST_TAGS",
     "Event", "User", "AttendanceStatus", "Attendance", "MatchResult", "Recommendation",
-    "ChatMessage", "event_room_id", "dm_room_id", "FilterCriteria",
+    "MessageKind", "ChatMessage", "GroupInvite", "EventGroup",
+    "event_room_id", "dm_room_id", "group_room_id", "FilterCriteria",
 ]

@@ -6,24 +6,25 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from m5_chat.chat_view import SHOW_STEP, _avatar_key_prefix
+from m5_chat.groups import accept_invite
 from m5_chat.service import MAX_MESSAGE_LEN, escape_markdown, room_title
 from shared.config import FEATURES
-from shared.models import User, event_room_id
+from shared.models import MessageKind, User, group_room_id
 from shared.state import View
 from shared.storage import Storage
 
-ROOM = event_room_id("e_jazz_alchemia")   # mocki: msg_seed_000 = Kuba, msg_seed_001 = Bartek
+# Ekipa na jazz z mocków: msg_seed_000 = Kuba, 001 = Bartek, 002 = Natalia; Ola ma zaproszenie.
+ROOM = group_room_id("g_jazz")
 
 
-def _chat_app(event_id: str = "e_jazz_alchemia"):
+def _chat_app(room_id: str = "group:g_jazz"):
     from m5_chat.chat_view import render_chat_room
     from shared import state
-    from shared.models import event_room_id
     from shared.storage import get_storage
 
     storage = get_storage()
     state.init()   # zalogowana: u_ola (domyślna)
-    render_chat_room(storage, storage.get_user(state.current_user_id()), event_room_id(event_id))
+    render_chat_room(storage, storage.get_user(state.current_user_id()), room_id)
 
 
 def _html_blocks(at: AppTest) -> list[str]:
@@ -37,6 +38,7 @@ def _button_keys(at: AppTest) -> set[str]:
 @pytest.fixture
 def chat_app(storage: Storage, monkeypatch) -> AppTest:
     monkeypatch.setattr("shared.storage._default_storage", storage)
+    assert accept_invite(storage, "g_jazz", "u_ola")          # Ola dołącza -> pisze jako członek grupy
     return AppTest.from_function(_chat_app, default_timeout=30)
 
 
@@ -102,7 +104,7 @@ def test_message_text_is_rendered_literally(chat_app: AppTest, storage: Storage)
 
 def test_empty_room_shows_placeholder(storage: Storage, monkeypatch):
     monkeypatch.setattr("shared.storage._default_storage", storage)
-    at = AppTest.from_function(_chat_app, kwargs={"event_id": "e_ceramika"}, default_timeout=30).run()
+    at = AppTest.from_function(_chat_app, kwargs={"room_id": "dm:u_ola:u_zosia"}, default_timeout=30).run()
     assert not at.exception, at.exception
     assert any("Jeszcze cisza" in h for h in _html_blocks(at))
 
@@ -113,7 +115,9 @@ def _bubble_count(at: AppTest) -> int:
 
 def test_room_messages_are_kept_in_session_buffer(chat_app: AppTest):
     at = chat_app.run()
-    assert [m.id for m in at.session_state[f"m5_buf_{ROOM}"]] == ["msg_seed_000", "msg_seed_001", "msg_seed_002"]
+    buffer = at.session_state[f"m5_buf_{ROOM}"]
+    assert [m.id for m in buffer[:3]] == ["msg_seed_000", "msg_seed_001", "msg_seed_002"]
+    assert [(m.kind, m.text) for m in buffer[3:]] == [(MessageKind.SYSTEM, "Ola dołącza do grupy 👋")]
 
 
 def test_only_latest_messages_are_drawn_older_on_demand(chat_app: AppTest, storage: Storage):

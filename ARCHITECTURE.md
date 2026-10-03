@@ -51,8 +51,8 @@ flowchart LR
     end
 
     subgraph DATA["Warstwa danych (shared/)"]
-        DB[("SQLite WAL<br/>data/app.db<br/>events · users · attendance · messages")]
-        SNAP["Storage — snapshot w RAM<br/>events / users / attendance<br/>(inwalidacja per tabela + data_version)"]
+        DB[("SQLite WAL<br/>data/app.db<br/>events · users · attendance · messages · groups")]
+        SNAP["Storage — snapshot w RAM<br/>events / users / attendance / groups<br/>(inwalidacja per tabela + data_version)"]
     end
 
     subgraph APP["Proces Streamlit (app.py)"]
@@ -83,7 +83,9 @@ erDiagram
     USER ||--o{ ATTENDANCE : "zapisuje się"
     EVENT ||--o{ ATTENDANCE : "ma uczestników"
     USER ||--o{ CHAT_MESSAGE : "pisze"
-    EVENT ||--o| CHAT_ROOM : "ma pokój czatu"
+    EVENT ||--o{ EVENT_GROUP : "ma ekipy"
+    USER }o--o{ EVENT_GROUP : "członek / zaproszony"
+    EVENT_GROUP ||--|| CHAT_ROOM : "czat grupy"
     CHAT_ROOM ||--o{ CHAT_MESSAGE : zawiera
 
     EVENT {
@@ -118,11 +120,21 @@ erDiagram
         str user_id
         str text
         datetime created_at
+        MessageKind kind
+        str ref
+    }
+    EVENT_GROUP {
+        str id PK
+        str event_id
+        list members
+        list invites
+        str created_by
     }
 ```
 
 Obiekty pochodne (nie są tabelami): `MatchResult` (M4 → UI), `Recommendation` (M4 → UI), `FilterCriteria` (filtry → `Storage.list_events`).
-Pokoje czatu to tylko konwencja ID: `event:<event_id>`, `dm:<user_a>:<user_b>`.
+Pokoje czatu to tylko konwencja ID: `group:<group_id>` (czat grupy na wydarzenie), `dm:<user_a>:<user_b>` (prywatny 1:1).
+`event:<event_id>` (publiczny czat wydarzenia) zostaje w kontrakcie, ale UI już go nie otwiera — zastąpiły go grupy (§4.4).
 
 ### 4.2 Fizyczny schemat (tabele dokumentowe)
 
@@ -130,6 +142,7 @@ Pokoje czatu to tylko konwencja ID: `event:<event_id>`, `dm:<user_a>:<user_b>`.
 events(id PK, data JSON, updated_at)          users(id PK, data JSON, updated_at)
 attendance(user_id, event_id, data JSON, PK(user_id, event_id)) + INDEX(event_id)
 messages(id PK, room_id, created_at, data JSON) + INDEX(room_id, created_at)
+groups(id PK, event_id, data JSON, updated_at) + INDEX(event_id)      -- EventGroup z zaproszeniami w środku
 ```
 
 Całe obiekty Pydantic jako JSON → **dodanie pola w modelu = zero migracji**; `extra="ignore"` toleruje stare rekordy, a niepoprawny rekord jest logowany i pomijany (nie wywraca aplikacji).
@@ -160,7 +173,31 @@ sequenceDiagram
 
 - Jedno połączenie SQLite na proces + `RLock` (sesje Streamlit to wątki jednego procesu).
 - Czat nie jest cache'owany — zapytanie po indeksie `(room_id, created_at)` z `since=` (polling przyrostowy).
+- Grupy: snapshot jak wyżej, zmiany przez `Storage.update_group(id, change)` — read-modify-write pod blokadą
+  w jednej transakcji (dwie karty głosujące naraz nie gubią głosów).
 - Zmierzone na szkielecie: 1000 przefiltrowanych `list_events` ≈ 10 ms łącznie.
+
+### 4.4 Grupy na wydarzenia („ekipy”, M5)
+
+| Zasada | Gdzie |
+|---|---|
+| Czat z profilu = zwykły DM. „Napisz” na karcie **pasującej osoby** i lista **Idą / Interesuje ich** w panelu wydarzenia = zaproszenie do *mojej* grupy na to wydarzenie (powstaje przy pierwszym zaproszeniu) | `m5_chat/group_view.py` |
+| Jedna osoba = najwyżej jedna grupa na wydarzenie; przyjęcie innego zaproszenia = wyjście z obecnej | `groups.accept_invite` |
+| Nową osobę zatwierdza **każdy** członek (karta głosowania na czacie); zapraszający jest „za” od razu, jeden głos „przeciw” odrzuca | `groups.invite` / `groups.vote` |
+| Zaproszona osoba czyta czat i wybiera „Dołącz” / „Odrzuć”; nad czatem nazwa wydarzenia i rząd awatarów (rośnie z każdą osobą) | `group_view.render_group_head` |
+| Grupę można opuścić; ostatnia osoba ją zamyka, a otwarte głosowania przeliczają się bez niej | `groups.leave_group` |
+
+```mermaid
+sequenceDiagram
+    participant O as Ola (członek)
+    participant K as Kuba (członek)
+    participant T as Tomek (zapraszany)
+    O->>O: „Zaproś” → Tomek (lista Idą / Pasujące)
+    Note over O,K: karta głosowania na czacie: Za 1/2 · czekamy na: Kuba
+    K->>K: „Za” → komplet głosów → zaproszenie wysłane
+    T->>T: „Ekipy · 1” + toast → podgląd czatu (tylko do odczytu)
+    T->>T: „Dołącz” → członek; awatar dochodzi do rzędu u wszystkich (fragment czatu → pełny rerun)
+```
 
 ## 5. Przepływ w Streamlit
 
@@ -170,7 +207,7 @@ sequenceDiagram
 flowchart TD
     A["rerun (interakcja / start)"] --> B["st.set_page_config · get_storage() · state.init()"]
     B --> C["user = storage.get_user(state.current_user_id())"]
-    C --> D["M1 render_header — wyszukiwarka + lokalizacja/promień, awatar M3, menu"]
+    C --> D["M1 render_header — wyszukiwarka + lokalizacja/promień, skrzynka „Ekipy” M5, awatar M3, menu"]
     D --> E["M1 render_filters (lewy panel) → FilterCriteria → state.set_filters"]
     E --> F["events = within_radius(storage.list_events(criteria))"]
     F --> H["M1 render_map (cały ekran) → klik? → state.select_event(id)"]
@@ -184,7 +221,7 @@ flowchart TD
     I & J & K & L --> P["M1 render_event_panel (prawy panel)"]
     P --> Q{"wybrany event?"}
     Q -->|nie| R["M4 render_recommendations"]
-    Q -->|tak| S["szczegóły · M5 Idę! · przycisk czatu · M4 match_for_event → M3 render_user_card"]
+    Q -->|tak| S["szczegóły · M5 Idę! · M5 ekipa (czat grupy / zaproszenia / Zaproś) · M4 match_for_event → M3 render_user_card"]
 ```
 
 Kluczowy trik: **lista i prawy panel renderują się po mapie**, więc klik w pinezkę ustawia `selected_event_id` i panel pokazuje event w *tym samym* przebiegu — bez dodatkowego `st.rerun()`.
@@ -206,13 +243,13 @@ Klucze prywatne modułów mają prefiks `m1_` … `m5_` — brak kolizji między
 ```mermaid
 stateDiagram-v2
     [*] --> MAP
-    MAP --> CHAT: „💬 Czat wydarzenia” / „Napisz” (DM)
+    MAP --> CHAT: „Czat grupy” / „Napisz” na pasującej osobie / „Ekipy”
     CHAT --> MAP: „← Mapa”
     MAP --> PROFILE_EDIT: ⚙️ Opcje → Edytuj profil
     PROFILE_EDIT --> MAP: Zapisz / Wróć
     MAP --> PROFILE_VIEW: „Zobacz profil” na karcie
     PROFILE_VIEW --> MAP: Wróć
-    PROFILE_VIEW --> CHAT: „Napisz”
+    PROFILE_VIEW --> CHAT: „Napisz” (DM)
     MAP --> ADD_EVENT: ⚙️ Opcje → Dodaj wydarzenie (flaga)
     ADD_EVENT --> MAP: Zapisz / Wróć
     note right of MAP
@@ -332,7 +369,7 @@ Zmienna `EVENTAPP_DB` pozwala wskazać inną bazę (np. osobną dla sandboxa).
 1. **Problem** (20 s): „Nowa w Krakowie, chce iść na jazz, nie ma z kim”.
 2. **Mapa** (30 s): Ola (`?user=u_ola`) — filtry: *Dziś*, *Muzyka* → pinezka „Jam session jazzowy w piwnicy”.
 3. **Panel** (40 s): szczegóły → lista „Pasujące osoby”: Bartek i Natalia na górze, uzasadnienie „Oboje lubicie: jazz, fotografia” → „Zobacz profil”.
-4. **Czat** (40 s): „💬 Czat wydarzenia” → druga karta jako Kuba (`?user=u_kuba`) odpisuje na żywo.
+4. **Ekipa** (40 s): „Napisz” przy Kubie w „Pasujących osobach” → czat grupy z nazwą wydarzenia; druga karta jako Kuba (`?user=u_kuba`): „Ekipy · 1” → „Dołącz” → awatar dochodzi do rzędu na żywo; Ola zaprasza Tomka → Kuba głosuje „Za” na czacie. (Na start Ola ma też zaproszenie do ekipy Kuby, Bartka i Natalii na jazz.)
 5. **Profil i rekomendacje** (30 s): edycja tagów (+ „opera”) → nowe rekomendacje i dopasowania.
 6. **Dane** (20 s): „X prawdziwych wydarzeń z Krakowa, aktualizowane scraperem”.
 

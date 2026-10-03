@@ -1,14 +1,13 @@
 """
-M5 sandbox — czat w izolacji:  streamlit run m5_chat/sandbox.py
+M5 sandbox — czat i grupy na wydarzenia w izolacji:  streamlit run m5_chat/sandbox.py
 
 Test "na żywo": otwórz dwie karty
     http://localhost:8501/?user=u_ola
     http://localhost:8501/?user=u_kuba
-i pisz z obu — wiadomości pojawiają się po <= CHAT_POLL_SECONDS.
-Klik w awatar/imię autora -> profil (M3); „← Wróć do mapy” wraca tu do czatu.
-DM: „✉️ Napisz” nad czatem wydarzenia albo „✉️ Napisz do…” w panelu bocznym (zastępuje
-przycisk „Napisz” z karty osoby M3); „← Mapa” w DM wraca do czatu wydarzenia.
-Sandbox pokazuje DM bez względu na FEATURES["dm_chat"].
+Grupa: wybierz wydarzenie w panelu bocznym -> „Zaproś na wspólne wyjście” (lista Idą / Interesuje ich)
+-> w drugiej karcie „Ekipy” -> zaproszenie -> „Dołącz”. Kolejne zaproszenie w grupie 2+ osób = głosowanie
+na czacie. Na start Ola ma zaproszenie do ekipy na jazz (Kuba, Bartek, Natalia).
+Klik w awatar/imię autora -> profil (M3) -> „Napisz” = prywatny czat 1:1 (DM).
 """
 
 import sys
@@ -19,10 +18,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import streamlit as st  # noqa: E402
 
 from m3_profile.views import render_profile_view  # noqa: E402
-from m5_chat.chat_view import open_dm, render_attendance_controls, render_chat_room, render_dm_list  # noqa: E402
+from m5_chat.chat_view import render_attendance_controls, render_chat_room  # noqa: E402
+from m5_chat.group_view import render_event_group_entry  # noqa: E402
+from m5_chat.inbox import render_group_notifier, render_inbox  # noqa: E402
 from m5_chat.service import escape_markdown  # noqa: E402
 from shared import state  # noqa: E402
-from shared.models import event_room_id  # noqa: E402
 from shared.state import View  # noqa: E402
 from shared.storage import get_storage  # noqa: E402
 
@@ -32,24 +32,18 @@ state.init()
 
 user = storage.get_user(state.current_user_id())
 events = {e.id: e for e in storage.list_events()}
-event_id = st.sidebar.selectbox("Pokój wydarzenia", list(events), format_func=lambda eid: events[eid].title)
+event_id = st.sidebar.selectbox("Wydarzenie", list(events), format_func=lambda eid: events[eid].title)
 st.sidebar.write(f"Jesteś: **{escape_markdown(user.name)}** (`?user={user.id}`)")
 with st.sidebar:
+    render_inbox(storage, user)
     render_attendance_controls(storage, events[event_id], user)
-    st.markdown("#### 💬 Moje rozmowy")
-    render_dm_list(storage, user)
-    st.markdown("#### ✉️ Napisz do…")
-    for attendance in storage.list_attendees(event_id):
-        if attendance.user_id != user.id and (other := storage.get_user(attendance.user_id)):
-            st.button(
-                f"✉️ {escape_markdown(other.name)}", key=f"m5_sbx_dm_{other.id}",
-                on_click=open_dm, args=(user.id, other.id),
-            )
+    render_event_group_entry(storage, event_id, user)
+render_group_notifier(storage, user)
 
 room_id = state.chat_room_id()
 if state.current_view() is View.PROFILE_VIEW and (viewed := storage.get_user(state.viewed_user_id())):
     render_profile_view(storage, viewed)
-elif state.current_view() is View.CHAT and room_id and room_id.startswith("dm:"):
+elif state.current_view() is View.CHAT and room_id:
     render_chat_room(storage, user, room_id)
 else:
-    render_chat_room(storage, user, event_room_id(event_id), allow_dm=True)
+    st.info("Otwórz czat grupy z panelu bocznego albo ze skrzynki „Ekipy”.")

@@ -10,7 +10,7 @@ from m5_chat.service import (
     merge_messages, refresh_messages, room_title, safe_avatar_src, sanitize_text, seconds_until_allowed,
     send_message,
 )
-from shared.models import ChatMessage, dm_room_id, event_room_id
+from shared.models import ChatMessage, dm_room_id, event_room_id, group_room_id
 from shared.storage import Storage
 
 
@@ -29,11 +29,13 @@ def test_send_message_truncates(storage: Storage):
 
 def test_room_titles(storage: Storage):
     assert "Jam session" in room_title(storage, event_room_id("e_jazz_alchemia"))
+    jazz = room_title(storage, event_room_id("e_jazz_alchemia"))
+    assert room_title(storage, group_room_id("g_jazz")) == jazz                 # czat grupy = nazwa wydarzenia
     assert "Ola" in room_title(storage, dm_room_id("u_ola", "u_kuba"))
 
 
-def test_seeded_chat_is_visible(storage: Storage):
-    assert storage.count_messages(event_room_id("e_jazz_alchemia")) >= 3
+def test_seeded_group_chat_is_visible(storage: Storage):
+    assert storage.count_messages(group_room_id("g_jazz")) >= 3
 
 
 def test_escape_markdown_shows_text_literally():
@@ -105,7 +107,7 @@ def test_group_messages_splits_on_long_pause_and_new_day():
     assert group_messages([]) == []
 
 
-JAZZ = event_room_id("e_jazz_alchemia")
+JAZZ = group_room_id("g_jazz")   # mocki: msg_seed_000..002 (Kuba, Bartek, Natalia)
 
 
 def test_refresh_messages_loads_once_then_asks_only_for_new(storage: Storage, monkeypatch):

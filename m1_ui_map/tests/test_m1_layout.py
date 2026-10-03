@@ -187,7 +187,7 @@ def test_chat_sheet_keeps_list_filters(app_storage):
     free = _results_count(at)
     at.session_state["selected_event_id"] = "e_jazz_alchemia"
     at.run()
-    at.button(key="m1_open_chat").click().run()
+    at.button(key="m5_grp_view_g_jazz").click().run()             # Ola ma zaproszenie do ekipy na jazz
     assert at.session_state["view"] == View.CHAT
     assert at.button(key="m5_back")                           # czat w arkuszu nad listą
     at.button(key="m5_back").click().run()

@@ -19,6 +19,7 @@ from m1_ui_map.location import within_radius
 from m1_ui_map.map_view import render_map
 from m3_profile.views import render_profile_editor, render_profile_view
 from m5_chat.chat_view import render_chat_room
+from m5_chat.inbox import render_group_notifier
 from shared import state
 from shared.config import APP_NAME, DEFAULT_USER_ID
 from shared.state import View
@@ -44,6 +45,7 @@ with st.container(key="m1_topbar", gap=None):
     render_header(storage, user)
     categories = render_category_bar()
 render_pick_banner()
+render_group_notifier(storage, user)   # M5: toast o zaproszeniu / głosowaniu z innej karty
 
 # --- Lewy panel: najpierw filtry, karty wypełniamy po mapie (widzą wybór z kliknięcia) ---------------
 with st.container(key="m1_left", gap=None):

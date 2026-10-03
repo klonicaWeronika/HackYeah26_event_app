@@ -34,10 +34,12 @@ from m3_profile.views import avatar_html, render_user_card, render_user_switcher
 from m4_matching.engine import match_for_event, plural_pl
 from m4_matching.widgets import render_recommendations
 from m5_chat.chat_view import render_attendance_controls
+from m5_chat.group_view import render_event_group_entry
+from m5_chat.inbox import render_inbox
 from shared import state
 from shared.config import APP_NAME, APP_TAGLINE, FEATURES, MAX_MATCHES_IN_PANEL
 from shared.formatting import format_price, format_when
-from shared.models import CATEGORY_META, Category, Event, FilterCriteria, User, event_room_id
+from shared.models import CATEGORY_META, Category, Event, FilterCriteria, User
 from shared.state import View
 from shared.storage import Storage
 
@@ -317,6 +319,7 @@ def render_header(storage: Storage, user: User) -> None:
             if FEATURES["add_event"]:
                 st.button("Dodaj wydarzenie", key="m1_add_event_top", icon=":material/add_location_alt:",
                           on_click=state.go_to, args=(View.ADD_EVENT,))
+            render_inbox(storage, user)                   # M5: grupy, zaproszenia, głosowania, DM
             st.markdown(_user_html(user, 38, plans_caption(going)), unsafe_allow_html=True)
             _render_menu(storage, user)
 
@@ -614,13 +617,7 @@ def render_event_panel(storage: Storage, user: User, event: Event | None) -> Non
     st.markdown(f'<div class="m1-facts">{"".join(facts)}</div>', unsafe_allow_html=True)
 
     render_attendance_controls(storage, event, user)
-
-    room_id = event_room_id(event.id)
-    st.button(
-        f"Czat wydarzenia ({storage.count_messages(room_id)})", icon=":material/forum:",
-        key="m1_open_chat", width="stretch",
-        on_click=state.go_to, args=(View.CHAT,), kwargs={"room_id": room_id},
-    )
+    render_event_group_entry(storage, event.id, user)   # M5: czat grupy / zaproszenia / „Zaproś na wyjście”
     if event.description:
         st.markdown(f'<div class="m1-desc">{html.escape(event.description)}</div>', unsafe_allow_html=True)
 

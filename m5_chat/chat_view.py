@@ -6,6 +6,8 @@ a nie cała aplikacja (mapa się nie przeładowuje).
 Układ: kolejne wiadomości jednej osoby to grupa. Cudze grupy po lewej, z klikalnym awatarem
 i imieniem (-> profil autora); własne po prawej, w kolorze akcentu. Tekst w dymkach
 przez html.escape -> zawsze dosłownie.
+Pokoje: DM (`dm:`) i czat grupy na wydarzenie (`group:`) — nagłówek grupy, komunikaty i karty
+głosowań rysuje m5_chat/group_view.py.
 """
 
 from __future__ import annotations
@@ -17,8 +19,10 @@ from collections.abc import Iterable
 
 import streamlit as st
 
+from m5_chat.group_view import group_signature, render_group_head, render_group_notice
+from m5_chat.groups import SYSTEM_USER_ID, GroupRole, group_id_of_room, role_in
 from m5_chat.service import (
-    BUFFER_LIMIT, MAX_MESSAGE_LEN, Conversation, attendance_counts, can_access_room, css_string, dm_candidates,
+    BUFFER_LIMIT, MAX_MESSAGE_LEN, Conversation, attendance_counts, can_access_room, css_string,
     escape_markdown, group_messages, list_conversations, refresh_messages, room_title, safe_avatar_src,
     seconds_until_allowed, send_message, set_attendance,
 )
@@ -115,49 +119,58 @@ def _render_group(group: list[ChatMessage], author: User | None, *, can_open_pro
     return clicked
 
 
-def render_chat_room(
-    storage: Storage, user: User, room_id: str, *, height: int = 520, allow_dm: bool | None = None,
-) -> None:
-    """Pełny widok czatu w środkowym obszarze (zamiast mapy): czat wydarzenia albo prywatna rozmowa.
+def render_chat_room(storage: Storage, user: User, room_id: str, *, height: int = 520) -> None:
+    """Pełny widok czatu w arkuszu nad listą: prywatna rozmowa (DM) albo czat grupy na wydarzenie.
 
-    `allow_dm` — przycisk „✉️ Napisz” (prywatnie) nad czatem wydarzenia; None = według FEATURES["dm_chat"].
+    Grupa: nad czatem nazwa wydarzenia i rząd awatarów; zaproszona osoba czyta, ale nie pisze.
     """
-    show_dm = (FEATURES["dm_chat"] if allow_dm is None else allow_dm) and room_id.startswith("event:")
-    col_back, col_title, *col_dm = st.columns([1, 4, 1.6] if show_dm else [1, 5], vertical_alignment="center")
-    with col_back:
-        st.button("← Mapa", on_click=state.go_to, args=(View.MAP,), key="m5_back")
-    if not can_access_room(room_id, user.id):
-        # Np. po „Zaloguj jako” z otwartym DM poprzedniej osoby — nie pokazujemy cudzej rozmowy.
-        col_title.warning("🔒 To prywatna rozmowa innych osób.")
-        return
-    with col_title:
-        # Tytuł eventu (scraper, formularz M2) i imiona w DM to dane z zewnątrz -> bez markdownu.
-        st.markdown(f"### {escape_markdown(room_title(storage, room_id, viewer_id=user.id))}")
+    group_id = group_id_of_room(room_id)
+    if group_id is not None:
+        if render_group_head(storage, user, group_id) is GroupRole.NONE:
+            return
+        height -= 80                                     # rząd awatarów nad czatem
+    else:
+        col_back, col_title = st.columns([1, 5], vertical_alignment="center")
+        with col_back:
+            st.button("← Mapa", on_click=state.go_to, args=(View.MAP,), key="m5_back")
+        if not can_access_room(room_id, user.id):
+            # Np. po „Zaloguj jako” z otwartym DM poprzedniej osoby — nie pokazujemy cudzej rozmowy.
+            col_title.warning("🔒 To prywatna rozmowa innych osób.")
+            return
+        with col_title:
+            # Tytuł eventu (scraper, formularz M2) i imiona w DM to dane z zewnątrz -> bez markdownu.
+            st.markdown(f"### {escape_markdown(room_title(storage, room_id, viewer_id=user.id))}")
 
     buf_key, show_key = f"m5_buf_{room_id}", f"m5_show_{room_id}"
     # Ten kod NIE wykonuje się w tickach fragmentu, tylko przy pełnym rerunie (wejście do pokoju,
     # „Reset demo”, zmiana użytkownika) -> wtedy bufor ładujemy od nowa; ticki dociągają tylko nowości.
     st.session_state[buf_key] = storage.list_messages(room_id, limit=BUFFER_LIMIT)
-    if col_dm:
-        # Poza fragmentem: lista osób odświeża się przy pełnym rerunie i nie kosztuje nic w tickach.
-        with col_dm[0]:
-            _render_dm_popover(storage, user, room_id, st.session_state[buf_key])
+    # Skład grupy z pełnego reruna: gdy tick zobaczy inny (ktoś dołączył, głosowanie się skończyło),
+    # robi pełny rerun -> nagłówek, rząd awatarów i panel wydarzenia pokazują nowy stan.
+    rendered_signature = group_signature(storage.get_group(group_id)) if group_id else None
 
     @st.fragment(run_every=CHAT_POLL_SECONDS)
     def _live_chat() -> None:
         started = time.perf_counter()
+        group = storage.get_group(group_id) if group_id else None
+        if group_id is not None and group_signature(group) != rendered_signature:
+            st.rerun()
+        can_write = group_id is None or role_in(group, user.id) is GroupRole.MEMBER
         # Okno wiadomości rezerwujemy NAD polem wpisywania, ale wypełniamy je dopiero po obsłudze wysyłki:
         # nowa wiadomość jest widoczna w tym samym przebiegu, bez dodatkowego st.rerun().
         # autoscroll trzyma dół tylko, gdy użytkownik sam nie przewinął w górę. Odstępy grup daje CSS (gap=None).
         chat_box = st.container(height=height, autoscroll=True, gap=None)
-        text = st.chat_input("Napisz wiadomość…", key=f"m5_input_{room_id}", max_chars=MAX_MESSAGE_LEN)
-        if text:
-            _send_with_limit(storage, room_id, user.id, text)
+        if can_write:
+            text = st.chat_input("Napisz wiadomość…", key=f"m5_input_{room_id}", max_chars=MAX_MESSAGE_LEN)
+            if text:
+                _send_with_limit(storage, room_id, user.id, text)
+        else:
+            st.caption("Dołącz do grupy, żeby pisać na czacie.")
 
         buffer = refresh_messages(storage, room_id, st.session_state.get(buf_key, []))
         st.session_state[buf_key] = buffer
         visible = buffer[-st.session_state.get(show_key, SHOW_STEP):]
-        authors = storage.get_users({m.user_id for m in visible})
+        authors = storage.get_users({m.user_id for m in visible if m.user_id != SYSTEM_USER_ID})
         can_open_profile = FEATURES["profile_view"]
         _inject_css(a for a in authors.values() if a.id != user.id)   # własny awatar nie jest wyświetlany
 
@@ -170,11 +183,14 @@ def render_chat_room(
                 )
             if not visible:
                 st.html(_EMPTY_HTML)
-            for group in group_messages(visible):
-                author_id = group[0].user_id
-                if author_id == user.id:
-                    st.html(_bubbles_html(group, mine=True))
-                elif _render_group(group, authors.get(author_id), can_open_profile=can_open_profile):
+            for run in group_messages(visible):
+                author_id = run[0].user_id
+                if author_id == SYSTEM_USER_ID:
+                    for message in run:
+                        render_group_notice(storage, message, group, user.id)
+                elif author_id == user.id:
+                    st.html(_bubbles_html(run, mine=True))
+                elif _render_group(run, authors.get(author_id), can_open_profile=can_open_profile):
                     opened_user_id = author_id
         if opened_user_id:
             state.go_to(View.PROFILE_VIEW, user_id=opened_user_id)
@@ -279,26 +295,11 @@ def render_dm_button(me_id: str, other_id: str, *, key: str, label: str = "✉�
         st.button(label, key=key, type="tertiary", on_click=open_dm, args=(me_id, other_id))
 
 
-def _render_dm_popover(storage: Storage, user: User, room_id: str, messages: list[ChatMessage]) -> None:
-    """„✉️ Napisz” (prywatnie) w czacie wydarzenia: osoby z czatu i zapisane (open_to_meet) -> open_dm."""
-    with st.popover("✉️ Napisz", help="Prywatna wiadomość do osoby z tego wydarzenia", width="stretch"):
-        people = dm_candidates(storage, room_id, user.id, messages)
-        st.caption(
-            "Rozmowa 1:1 — widzicie ją tylko wy dwoje." if people
-            else "Nikogo tu jeszcze nie ma — zapisz się albo napisz pierwszą wiadomość 🙂"
-        )
-        for person in people:
-            st.button(
-                escape_markdown(person.name), key=f"m5_dmto_{room_id}_{person.id}", type="tertiary",
-                on_click=open_dm, args=(user.id, person.id),
-            )
-
-
 def render_dm_list(storage: Storage, user: User, *, limit: int = 8) -> None:
     """„Moje rozmowy”: prywatne czaty od najświeższej; klik otwiera rozmowę (open_dm)."""
     conversations = list_conversations(storage, user.id)
     if not conversations:
-        st.caption("Brak prywatnych rozmów — napisz do kogoś z listy „Pasujące osoby” 🙂")
+        st.caption("Brak prywatnych rozmów — „Napisz” znajdziesz w profilu każdej osoby 🙂")
         return
     current = state.chat_room_id() if state.current_view() is View.CHAT else None
     for conv in conversations[:limit]:

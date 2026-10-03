@@ -11,6 +11,7 @@ Architektura: "SQLite jako źródło prawdy + snapshot w RAM".
       - zapis przez ten obiekt  -> czyścimy tylko dotkniętą tabelę,
       - zapis z INNEGO procesu  -> wykrywa to `PRAGMA data_version` (np. po uruchomieniu scrapera).
   * Czat NIE jest cache'owany: indeks (room_id, created_at) + zapytanie z `since`.
+  * Grupy na wydarzenia (EventGroup) — snapshot jak wyżej; zmiany przez `update_group` (atomowo).
 
 Moduł NIE importuje streamlit — działa w scraperze, testach i REPL.
 Użycie:
@@ -46,6 +47,7 @@ from shared.models import (
     AttendanceStatus,
     ChatMessage,
     Event,
+    EventGroup,
     FilterCriteria,
     INTEREST_TAGS,
     User,
@@ -82,6 +84,13 @@ CREATE TABLE IF NOT EXISTS messages (
     data        TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_messages_room ON messages(room_id, created_at);
+CREATE TABLE IF NOT EXISTS groups (
+    id          TEXT PRIMARY KEY,
+    event_id    TEXT NOT NULL,
+    data        TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_groups_event ON groups(event_id);
 """
 
 M = TypeVar("M", bound=BaseModel)
@@ -103,6 +112,23 @@ class _AttendanceIndex:
             self.by_event[a.event_id].append(a)
             self.by_user[a.user_id].append(a)
             self.by_pair[(a.user_id, a.event_id)] = a
+
+
+class _GroupIndex:
+    """Snapshot tabeli groups: po id, po wydarzeniu i po osobie (członek / zaproszona)."""
+
+    def __init__(self, rows: list[EventGroup]):
+        rows = sorted(rows, key=lambda g: (g.created_at, g.id))
+        self.by_id: dict[str, EventGroup] = {g.id: g for g in rows}
+        self.by_event: dict[str, list[EventGroup]] = defaultdict(list)
+        self.by_member: dict[str, list[EventGroup]] = defaultdict(list)
+        self.by_invitee: dict[str, list[EventGroup]] = defaultdict(list)
+        for g in rows:
+            self.by_event[g.event_id].append(g)
+            for user_id in g.members:
+                self.by_member[user_id].append(g)
+            for invite in g.invites:
+                self.by_invitee[invite.user_id].append(g)
 
 
 class Storage:
@@ -206,8 +232,9 @@ class Storage:
     def delete_event(self, event_id: str) -> bool:
         with self._lock, self._conn:
             self._conn.execute("DELETE FROM attendance WHERE event_id = ?", (event_id,))
+            self._conn.execute("DELETE FROM groups WHERE event_id = ?", (event_id,))
             deleted = self._conn.execute("DELETE FROM events WHERE id = ?", (event_id,)).rowcount
-        self._invalidate("events", "tags", "attendance")
+        self._invalidate("events", "tags", "attendance", "groups")
         return deleted > 0
 
     def known_tags(self) -> list[str]:
@@ -342,6 +369,67 @@ class Storage:
             ).fetchone()[0]
 
     # ------------------------------------------------------------------ #
+    # Grupy na wydarzenia („ekipy”) — reguły (głosowanie, 1 grupa na event) pilnuje M5
+    # ------------------------------------------------------------------ #
+
+    def _group_index(self) -> _GroupIndex:
+        return self._cached(
+            "groups", lambda: _GroupIndex(self._load_models("SELECT data FROM groups", EventGroup))
+        )
+
+    def get_group(self, group_id: str | None) -> EventGroup | None:
+        return self._group_index().by_id.get(group_id) if group_id else None
+
+    def list_groups(self, event_id: str | None = None) -> list[EventGroup]:
+        """Grupy wydarzenia (albo wszystkie), od najstarszej."""
+        index = self._group_index()
+        return list(index.by_event.get(event_id, []) if event_id else index.by_id.values())
+
+    def list_member_groups(self, user_id: str) -> list[EventGroup]:
+        return list(self._group_index().by_member.get(user_id, []))
+
+    def list_invited_groups(self, user_id: str) -> list[EventGroup]:
+        """Grupy z zaproszeniem dla osoby (także te, w których trwa jeszcze głosowanie)."""
+        return list(self._group_index().by_invitee.get(user_id, []))
+
+    def upsert_group(self, group: EventGroup) -> EventGroup:
+        self._write(
+            "INSERT INTO groups (id, event_id, data, updated_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(id) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at",
+            (group.id, group.event_id, group.model_dump_json(), _ts(datetime.now())),
+        )
+        self._invalidate("groups")
+        return group
+
+    def delete_group(self, group_id: str) -> bool:
+        deleted = self._write("DELETE FROM groups WHERE id = ?", (group_id,))
+        self._invalidate("groups")
+        return deleted > 0
+
+    def update_group(
+        self, group_id: str, change: Callable[[EventGroup], EventGroup | None]
+    ) -> EventGroup | None:
+        """Atomowe read-modify-write (dwie karty głosują naraz -> żaden głos nie ginie).
+
+        `change` dostaje aktualny stan z bazy (nie ze snapshotu) i zwraca nową wersję albo None =
+        usuń grupę. Brak grupy -> None bez wywołania `change`. `change` nie może pisać do storage.
+        """
+        with self._lock, self._conn:
+            row = self._conn.execute("SELECT data FROM groups WHERE id = ?", (group_id,)).fetchone()
+            if row is None:
+                return None
+            updated = change(EventGroup.model_validate_json(row[0]))
+            if updated is None:
+                self._conn.execute("DELETE FROM groups WHERE id = ?", (group_id,))
+            else:
+                self._conn.execute(
+                    "UPDATE groups SET data = ?, updated_at = ? WHERE id = ?",
+                    (updated.model_dump_json(), _ts(datetime.now()), group_id),
+                )
+        self._invalidate("groups")
+        return updated
+
+    # ------------------------------------------------------------------ #
     # Administracja / seed
     # ------------------------------------------------------------------ #
 
@@ -364,6 +452,8 @@ class Storage:
             "INSERT OR REPLACE INTO messages (id, room_id, created_at, data) VALUES (?, ?, ?, ?)",
             [(m.id, m.room_id, _ts(m.created_at), m.model_dump_json()) for m in ds.messages], many=True,
         )
+        for group in ds.groups:
+            self.upsert_group(group)
         self.invalidate_cache()
 
     def seed_real_events(self, path: str | Path = SEED_EVENTS_PATH) -> int:
@@ -392,7 +482,7 @@ class Storage:
     def reset(self, *, seed: bool = True) -> None:
         """Czyści WSZYSTKIE dane (opcjonalnie ładuje mocki + snapshot M2). Do testów i przycisku 'Reset demo'."""
         with self._lock, self._conn:
-            for table in ("messages", "attendance", "users", "events"):
+            for table in ("groups", "messages", "attendance", "users", "events"):
                 self._conn.execute(f"DELETE FROM {table}")
         self.invalidate_cache()
         if seed:
@@ -402,7 +492,7 @@ class Storage:
         with self._lock:
             return {
                 table: self._conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-                for table in ("events", "users", "attendance", "messages")
+                for table in ("events", "users", "attendance", "messages", "groups")
             }
 
     def close(self) -> None:

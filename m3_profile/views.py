@@ -209,10 +209,21 @@ def _dm_callback():
     return chat_view.open_dm if hasattr(chat_view, "open_dm") else None
 
 
+def _event_chat_callback():
+    """`open_event_chat` z M5 (czat grupy na wydarzenie) albo None, gdy M5 go nie dostarcza. Import leniwy."""
+    try:
+        from m5_chat import group_view
+    except ImportError:
+        return None
+    return getattr(group_view, "open_event_chat", None)
+
+
 def render_user_card(user: User, match: MatchResult | None = None, *, key: str) -> None:
     """Karta osoby (dopasowania w prawym panelu, listy uczestników).
 
-    `key` musi być unikalny na stronie — przyciski dostają klucze `{key}_profile` i `{key}_dm`.
+    „Napisz” przy dopasowaniu do wydarzenia (`match.event_id`) otwiera czat grupy na to wydarzenie
+    (zaproszenie do mojej ekipy, M5); bez kontekstu wydarzenia — prywatny czat 1:1 (DM).
+    `key` musi być unikalny na stronie — przyciski dostają klucze `{key}_profile`, `{key}_group` i `{key}_dm`.
     """
     with st.container(border=True):
         st.markdown(user_card_html(user, match), unsafe_allow_html=True)
@@ -222,9 +233,14 @@ def render_user_card(user: User, match: MatchResult | None = None, *, key: str) 
                 key=f"{key}_profile", on_click=state.go_to,
                 args=(View.PROFILE_VIEW,), kwargs={"user_id": user.id},
             )))
-        open_dm = _dm_callback()
+        open_dm, open_event_chat = _dm_callback(), _event_chat_callback()
         me = state.current_user_id()
-        if open_dm is not None and user.id != me:
+        if user.id != me and match is not None and match.event_id and open_event_chat is not None:
+            actions.append(("💬 Napisz", dict(
+                key=f"{key}_group", on_click=open_event_chat, args=(me, user.id, match.event_id),
+                help="Czat Twojej ekipy na to wydarzenie — zaproszenie zobaczy od razu.",
+            )))
+        elif user.id != me and open_dm is not None:
             actions.append(("💬 Napisz", dict(key=f"{key}_dm", on_click=open_dm, args=(me, user.id))))
         if actions:
             for col, (label, params) in zip(st.columns(len(actions)), actions):
