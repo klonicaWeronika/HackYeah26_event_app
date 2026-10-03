@@ -24,6 +24,7 @@ python -m shared.storage --reset    # świeże dane demo (daty liczone od dziś)
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — architektura end-to-end, przepływ danych i stanów, podział zadań, harmonogram 24 h, scenariusz demo.
 - [docs/TASK_SPEC_TEMPLATE.md](docs/TASK_SPEC_TEMPLATE.md) — szablon specyfikacji modułu.
+- `m*/AGENT_PROMPT.md` — gotowe prompty dla agenta AI (Claude Code itp.): prompt startowy, prompt na kolejne zadanie, a w M1 także prompt integracyjny na checkpointy.
 
 | Moduł | Folder | Specyfikacja | Sandbox |
 |---|---|---|---|
