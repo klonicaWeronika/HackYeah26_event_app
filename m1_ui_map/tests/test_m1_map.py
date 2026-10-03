@@ -2,6 +2,7 @@
 
 import math
 from datetime import datetime
+from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
 
@@ -41,6 +42,6 @@ def test_pin_spread_is_small():
 def test_app_smoke(tmp_path, monkeypatch):
     """Cała aplikacja renderuje się bez wyjątku na mockach (izolowana baza, nie data/app.db)."""
     monkeypatch.setattr("shared.storage._default_storage", Storage(tmp_path / "smoke.db"))
-    at = AppTest.from_file("app.py", default_timeout=30).run()
+    at = AppTest.from_file(str(Path(__file__).resolve().parents[2] / "app.py"), default_timeout=30).run()
     assert not at.exception, at.exception
     assert at.session_state["view"] == "map"
