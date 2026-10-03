@@ -9,6 +9,14 @@ python -m m2_scraper.run --source all --days 7         # tylko najbliższe 7 dni
 streamlit run m2_scraper/sandbox.py                    # podgląd wyniku źródła bez zapisu
 ```
 
+### Formularz „Dodaj wydarzenie” (M2-09)
+
+`add_event_form.render_add_event_form(storage, user)` — widok `View.ADD_EVENT`, przycisk w menu „⚙️ Opcje” (M1),
+pokazywany po włączeniu `FEATURES["add_event"]` w `shared/config.py`. Miejsce: znane miejsce ze słownika
+(`KRAKOW_VENUES` + `venues.py`), nazwa/adres (geokoder) albo klik na mapie. Puste tagi → dobierane z tytułu i opisu.
+Zapis w callbacku: nowa pinezka i otwarty panel w tym samym przebiegu. Logika i walidacja: `user_events.py`.
+Podgląd bez dotykania `data/app.db`: `streamlit run m2_scraper/sandbox.py` → tryb „Formularz”.
+
 ### Demo offline (snapshot)
 
 ```bash

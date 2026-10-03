@@ -4,7 +4,15 @@ from datetime import date, datetime
 
 import pytest
 
-from m2_scraper.normalize import extract_tags, find_price, map_category, parse_pl_datetime, parse_price, shorten
+from m2_scraper.normalize import (
+    extract_tags,
+    find_price,
+    map_category,
+    parse_pl_datetime,
+    parse_price,
+    shorten,
+    with_city,
+)
 from shared.models import INTEREST_TAGS, Category
 
 TODAY = date(2026, 10, 3)        # sobota
@@ -165,6 +173,19 @@ def test_extract_tags_type_defaults_and_canonical():
     assert "techno" in extract_tags("Digital Riot", source_type="Muzyka klubowa")
     for tags in (extract_tags("Wystawa malarstwa i rzeźby w galerii"), extract_tags("x", source_type="Kabaret")):
         assert tags and set(tags) <= set(INTEREST_TAGS)
+
+
+@pytest.mark.parametrize("address, expected", [
+    ("ul. Estery 5", "ul. Estery 5, Kraków"),
+    ("ul. Krakowska 13", "ul. Krakowska 13, Kraków"),                    # ulica, nie miasto
+    ("ul. Zwierzyniecka 1, Kraków", "ul. Zwierzyniecka 1, Kraków"),
+    ("Kraków, Rynek Główny", "Kraków, Rynek Główny"),
+    ("Gęsia 22A, 31–535 Kraków", "Gęsia 22A, 31–535 Kraków"),           # miasto po kodzie pocztowym
+    ("ul. Kasy Oszczędności Miasta Krakowa", "ul. Kasy Oszczędności Miasta Krakowa, Kraków"),
+    ("", ""),
+])
+def test_with_city(address, expected):
+    assert with_city(address) == expected
 
 
 def test_shorten_cuts_at_sentence():

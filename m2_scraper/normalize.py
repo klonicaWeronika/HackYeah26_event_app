@@ -41,6 +41,14 @@ def clean_text(text: str) -> str:
     return re.sub(r"\s+([,.;:!?)])", r"\1", " ".join((text or "").split()))
 
 
+def with_city(address: str, city: str = "Kraków") -> str:
+    """'ul. Estery 5' -> 'ul. Estery 5, Kraków'; nie dubluje miasta ('ul. Krakowska 13' to wciąż ulica)."""
+    address = (address or "").strip()
+    if not address or re.search(r"\bkrakow\b", fold_text(address)):       # słowo "Kraków", nie "Krakowska"
+        return address
+    return f"{address}, {city}"
+
+
 def shorten(text: str, limit: int = DESCRIPTION_LIMIT) -> str:
     """Skraca opis do ~limit znaków, najchętniej na końcu zdania."""
     text = clean_text(text)

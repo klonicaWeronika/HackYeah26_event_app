@@ -30,6 +30,7 @@ from m2_scraper.normalize import (
     map_category,
     parse_pl_datetime,
     shorten,
+    with_city,
 )
 from shared.models import Event, fold_text, is_in_krakow, stable_id
 
@@ -170,26 +171,20 @@ def split_location(text: str) -> tuple[str, str]:
 # --------------------------------------------------------------------------- #
 
 
-def _krakow_address(address: str) -> str:
-    if address and "krakow" not in fold_text(address):
-        return f"{address}, Kraków"
-    return address
-
-
 def _place(card: KarnetCard, detail: KarnetDetail | None) -> tuple[str, str, float, float] | None:
     """(venue, address, lat, lon) — najpierw blok 'Miejsce wydarzenia', potem karta, na końcu geokoder."""
     if detail:
         for place in detail.places:
             if place.lat is not None and place.lon is not None and is_in_krakow(place.lat, place.lon):
-                return place.name, _krakow_address(place.address), place.lat, place.lon
+                return place.name, with_city(place.address), place.lat, place.lon
     location = (detail.locations[0] if detail and detail.locations else "") or card.location
     venue, address = split_location(location)
     if card.lat is not None and card.lon is not None and is_in_krakow(card.lat, card.lon):
-        return venue or "Kraków", _krakow_address(address), card.lat, card.lon
+        return venue or "Kraków", with_city(address), card.lat, card.lon
     coords = geocode(venue, address) if venue else None
     if coords is None:
         return None
-    return venue, _krakow_address(address), coords[0], coords[1]
+    return venue, with_city(address), coords[0], coords[1]
 
 
 def build_events(card: KarnetCard, detail: KarnetDetail | None, today: date, horizon: date,
