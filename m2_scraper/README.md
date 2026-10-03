@@ -36,6 +36,10 @@ nie obchodzimy jej; koncerty Filharmonii są i tak w Karnecie). `krakow.pl/kalen
   cache odpowiedzi na dysku (`data/cache/http/`, gitignore).
 - Nie obchodzimy logowania, CAPTCHA ani ochrony antybotowej — 403/challenge = rezygnujemy ze źródła.
 - Bierzemy fakty (tytuł, termin, miejsce, cena) + krótki opis, zawsze z linkiem do strony źródłowej. Bez danych osobowych.
+- **Geokodowanie (M2-04):** słownik `KRAKOW_VENUES` + `m2_scraper/venues.py` (98 miejsc ze współrzędnymi
+  podanymi przez Karnet) → cache `data/cache/geocode.json` → Nominatim. **robots.txt Nominatim zawiera
+  `Disallow: /search`**, więc zgodnie z zasadą „respektujemy robots.txt” geokoder go nie odpytuje (kod jest gotowy
+  i sam się włączy, gdy robots na to pozwoli). Nie przeszkadza to: Karnet podaje lat/lon dla 99,7% wydarzeń.
 - **TLS Karnetu:** serwer wysyła zły certyfikat pośredni (R29 zamiast E29). Publiczny certyfikat
   „nazwaSSL DV TLS G2 E29 CA” (z adresu AIA w certyfikacie serwera) leży w `m2_scraper/certs/` i jest dokładany do
   bundla `certifi` — weryfikacja TLS pozostaje włączona (nigdy `verify=False`).
