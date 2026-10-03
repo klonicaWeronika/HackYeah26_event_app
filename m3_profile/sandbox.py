@@ -7,7 +7,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import streamlit as st  # noqa: E402
 
-from m3_profile.views import render_profile_editor, render_profile_view, render_user_card, render_user_switcher  # noqa: E402
+from m3_profile.views import (  # noqa: E402
+    render_profile_editor,
+    render_profile_view,
+    render_user_card,
+    render_user_switcher,
+)
 from shared import state  # noqa: E402
 from shared.storage import get_storage  # noqa: E402
 
@@ -28,7 +33,18 @@ tab_edit, tab_cards, tab_view = st.tabs(["Edycja profilu", "Karty osób", "Podgl
 with tab_edit:
     render_profile_editor(storage, user)
 with tab_cards:
-    for other in storage.list_users():
-        render_user_card(other, key=f"sb_card_{other.id}")
+    from m4_matching.engine import match_for_event  # tylko do podglądu realnych dopasowań (M4)
+
+    events = [e for e in storage.list_events() if storage.list_attendees(e.id)]
+    event = st.selectbox("Wydarzenie (dopasowania z M4 dla zalogowanej osoby)", events,
+                         format_func=lambda e: e.title, key="m3_sb_event")
+    _, panel = st.columns([2.6, 1.2], gap="medium")   # proporcje jak w app.py = szerokość prawego panelu
+    with panel:
+        st.markdown("#### 🤝 Pasujące osoby")
+        for m in match_for_event(storage, user, event.id) if event else []:
+            render_user_card(m.user, m, key=f"sb_match_{m.user.id}")
+        st.markdown("#### Bez dopasowania")
+        for other in storage.list_users():
+            render_user_card(other, key=f"sb_card_{other.id}")
 with tab_view:
     render_profile_view(storage, storage.get_user(state.viewed_user_id() or user.id))

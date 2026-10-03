@@ -81,26 +81,114 @@ def render_user_switcher(storage: Storage, key: str = "m3_user_switch") -> None:
               help="Załóż profil dla nowej osoby (zdjęcie, imię, zainteresowania).")
 
 
+# --------------------------------------------------------------------------- #
+# Karta osoby (M3-05): jeden blok HTML (stabilny w kolumnie ≈ 320 px) + akcje
+# --------------------------------------------------------------------------- #
+
+_CARD_MAX_CHIPS = 6
+_CARD_TEXT_MAX = 90
+_CHIP = "display:inline-block;padding:1px 8px;border-radius:999px;font-size:0.75rem;line-height:1.5;"
+_CHIP_SHARED = _CHIP + (
+    "background:rgba(228,87,46,0.16);border:1px solid rgba(228,87,46,0.55);font-weight:600;"
+)
+_CHIP_OTHER = _CHIP + "background:rgba(128,128,128,0.12);border:1px solid rgba(128,128,128,0.25);"
+
+
+def _score_color(score: float) -> str:
+    """Kolor badge'a/paska; każdy ma kontrast ≥ 4.5:1 z białym tekstem (WCAG AA)."""
+    if score >= 0.5:
+        return "#1E7B45"      # zielony — mocne dopasowanie
+    if score >= 0.25:
+        return "#A35F00"      # bursztyn — sporo wspólnego
+    return "#5F6670"          # szary — mało wspólnego (ale idziecie na to samo)
+
+
+def _shorten(text: str, limit: int = _CARD_TEXT_MAX) -> str:
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def _chip_html(tag: str, shared: bool) -> str:
+    if shared:
+        return f'<span style="{_CHIP_SHARED}" title="Wspólne zainteresowanie">✓ {html.escape(tag)}</span>'
+    return f'<span style="{_CHIP_OTHER}">{html.escape(tag)}</span>'
+
+
+def user_card_html(user: User, match: MatchResult | None = None) -> str:
+    """HTML karty: awatar, imię, wynik (procent + pasek), uzasadnienie/bio, tagi (wspólne wyróżnione).
+
+    Czysty string (bez wywołań Streamlit) — wszystkie dane użytkownika i M4 przechodzą przez html.escape.
+    Bez wcięć i nowych linii: markdown potraktowałby wcięty HTML jako blok kodu.
+    """
+    name_style = "font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+    head = f'<span style="{name_style}">{html.escape(user.name)}</span>'
+    bar = ""
+    if match is not None:
+        pct, color = round(match.score * 100), _score_color(match.score)
+        head += (
+            f'<span title="Dopasowanie zainteresowań: {pct}%" style="flex-shrink:0;font-size:0.8rem;'
+            f'font-weight:700;color:#fff;background:{color};border-radius:999px;padding:0 8px;">{pct}%</span>'
+        )
+        bar = (
+            f'<div role="img" aria-label="Dopasowanie {pct}%" style="height:5px;border-radius:3px;'
+            f'background:rgba(128,128,128,0.2);margin:4px 0 2px;"><div style="width:{max(pct, 3)}%;'
+            f'height:100%;border-radius:3px;background:{color};"></div></div>'
+        )
+    text = match.reason if match and match.reason else user.bio
+    text_html = (
+        f'<div style="font-size:0.85rem;opacity:0.8;margin:2px 0 6px;">{html.escape(_shorten(text))}</div>'
+        if text else ""
+    )
+    shared = list(match.shared_tags) if match else []
+    tags = [(t, True) for t in shared] + [(t, False) for t in user.tags if t not in shared]
+    chips = "".join(_chip_html(t, is_shared) for t, is_shared in tags[:_CARD_MAX_CHIPS])
+    if len(tags) > _CARD_MAX_CHIPS:
+        chips += f'<span style="{_CHIP_OTHER}">+{len(tags) - _CARD_MAX_CHIPS}</span>'
+    chips_html = f'<div style="display:flex;flex-wrap:wrap;gap:4px;">{chips}</div>' if chips else ""
+    return (
+        '<div style="display:flex;gap:10px;align-items:flex-start;">'
+        f"{avatar_html(user, 44)}"
+        '<div style="flex:1;min-width:0;">'
+        f'<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">{head}</div>'
+        f"{bar}{text_html}{chips_html}"
+        "</div></div>"
+    )
+
+
+def _dm_callback():
+    """`open_dm` z M5, jeśli DM jest włączony i już dostarczony; inaczej None (przycisk się nie pokazuje).
+
+    Import leniwy: M5 importuje z M3 (avatar_html), więc import na górze modułu dałby cykl.
+    """
+    if not FEATURES.get("dm_chat"):
+        return None
+    try:
+        from m5_chat import chat_view
+    except ImportError:
+        return None
+    return chat_view.open_dm if hasattr(chat_view, "open_dm") else None
+
+
 def render_user_card(user: User, match: MatchResult | None = None, *, key: str) -> None:
-    """Kompaktowa karta osoby (lista dopasowań w prawym panelu, lista uczestników)."""
+    """Karta osoby (dopasowania w prawym panelu, listy uczestników).
+
+    `key` musi być unikalny na stronie — przyciski dostają klucze `{key}_profile` i `{key}_dm`.
+    """
     with st.container(border=True):
-        col_avatar, col_body = st.columns([1, 4], vertical_alignment="center")
-        with col_avatar:
-            st.markdown(avatar_html(user, 44), unsafe_allow_html=True)
-        with col_body:
-            title = f"**{user.name}**"
-            if match is not None:
-                title += f" · {match.score:.0%} dopasowania"
-            st.markdown(title)
-            if match and match.reason:
-                st.caption(match.reason)
-            elif user.bio:
-                st.caption(user.bio[:90])
+        st.markdown(user_card_html(user, match), unsafe_allow_html=True)
+        actions: list[tuple[str, dict]] = []
         if FEATURES["profile_view"]:
-            st.button(
-                "Zobacz profil", key=key, type="tertiary",
-                on_click=state.go_to, args=(View.PROFILE_VIEW,), kwargs={"user_id": user.id},
-            )
+            actions.append(("👤 Profil", dict(
+                key=f"{key}_profile", on_click=state.go_to,
+                args=(View.PROFILE_VIEW,), kwargs={"user_id": user.id},
+            )))
+        open_dm = _dm_callback()
+        me = state.current_user_id()
+        if open_dm is not None and user.id != me:
+            actions.append(("💬 Napisz", dict(key=f"{key}_dm", on_click=open_dm, args=(me, user.id))))
+        if actions:
+            for col, (label, params) in zip(st.columns(len(actions)), actions):
+                col.button(label, width="stretch", **params)
 
 
 # --------------------------------------------------------------------------- #

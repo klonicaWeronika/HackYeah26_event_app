@@ -9,6 +9,8 @@ import pytest
 from PIL import Image
 from streamlit.testing.v1 import AppTest
 
+from m5_chat import chat_view
+from shared.config import FEATURES
 from shared.mock_data import DEMO_USER_ID
 from shared.state import Keys, View
 from shared.storage import Storage
@@ -364,3 +366,74 @@ def test_render_onboarding_returns_created_user_once(ui_storage):
     assert any(m.value == f"utworzono:{new_id}" for m in at.markdown)
     _run(at)                                                           # kolejny przebieg: znów formularz
     assert not any(m.value.startswith("utworzono:") for m in at.markdown)
+
+
+# --------------------------------------------------------------------------- #
+# M3-05: karta osoby — klucze, „Profil”, „Napisz” (API M5)
+# --------------------------------------------------------------------------- #
+
+def _cards_app() -> None:
+    from m3_profile.views import render_user_card
+    from shared import state
+    from shared.storage import get_storage
+
+    storage = get_storage()
+    state.init()
+    kuba, ola = storage.get_user("u_kuba"), storage.get_user("u_ola")
+    render_user_card(kuba, key="t_a")
+    render_user_card(kuba, key="t_b")          # ta sama osoba drugi raz (np. dwie listy) -> inne klucze
+    render_user_card(ola, key="t_me")          # własna karta
+
+
+@pytest.fixture
+def cards(ui_storage) -> AppTest:
+    at = AppTest.from_function(_cards_app, default_timeout=15)
+    at.query_params["user"] = DEMO_USER_ID
+    return at
+
+
+def test_card_keys_are_unique_and_profile_button_opens_profile(cards):
+    _run(cards)
+    assert {b.key for b in cards.button} >= {"t_a_profile", "t_b_profile", "t_me_profile"}
+    cards.button(key="t_b_profile").click()
+    _run(cards)
+    assert cards.session_state[Keys.VIEW] is View.PROFILE_VIEW
+    assert cards.session_state[Keys.VIEWED_USER_ID] == "u_kuba"
+
+
+def test_dm_button_hidden_when_feature_flag_off(cards, monkeypatch):
+    monkeypatch.setitem(FEATURES, "dm_chat", False)
+    monkeypatch.setattr(chat_view, "open_dm", lambda me, other: None, raising=False)
+    _run(cards)
+    assert not [b for b in cards.button if b.key.endswith("_dm")]
+
+
+def test_dm_button_hidden_until_m5_delivers_open_dm(cards, monkeypatch):
+    monkeypatch.setitem(FEATURES, "dm_chat", True)
+    monkeypatch.delattr(chat_view, "open_dm", raising=False)
+    _run(cards)                                                         # nic się nie wywraca
+    assert not [b for b in cards.button if b.key.endswith("_dm")]
+
+
+def test_dm_button_calls_m5_open_dm_with_me_and_other(cards, monkeypatch):
+    calls = []
+    monkeypatch.setitem(FEATURES, "dm_chat", True)
+    monkeypatch.setattr(chat_view, "open_dm", lambda me, other: calls.append((me, other)), raising=False)
+    _run(cards)
+    assert {b.key for b in cards.button if b.key.endswith("_dm")} == {"t_a_dm", "t_b_dm"}   # bez własnej karty
+    cards.button(key="t_a_dm").click()
+    _run(cards)
+    assert calls == [(DEMO_USER_ID, "u_kuba")]
+
+
+def test_match_cards_in_full_app_panel(ui_storage):
+    """Prawy panel M1: karta każdej pasującej osoby ma badge + pasek wyniku i przyciski z kluczami M1."""
+    from m4_matching.engine import match_for_event
+
+    event_id = "e_jazz_alchemia"
+    at = _app(**{Keys.SELECTED_EVENT_ID: event_id})
+    matches = match_for_event(ui_storage, ui_storage.get_user(DEMO_USER_ID), event_id)
+    bars = [m.value for m in at.markdown if 'aria-label="Dopasowanie' in m.value]
+    assert matches and len(bars) == len(matches)
+    for m in matches:
+        assert at.button(key=f"m1_match_{event_id}_{m.user.id}_profile")
