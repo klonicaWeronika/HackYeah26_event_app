@@ -18,6 +18,7 @@ from m4_matching.engine import (
     build_idf,
     match_breakdown,
     match_for_event,
+    recommend_breakdown,
     recommend_events,
     tag_similarity,
     weighted_score,
@@ -201,6 +202,9 @@ def test_weighted_score_normalizes_by_present_signals():
 # --- rekomendacje: deterministyczny tie-break ---------------------------- #
 
 def test_recommendations_have_deterministic_order(storage: Storage, demo_user: User):
-    recs = recommend_events(storage, demo_user, limit=50)
-    keys = [(-r.score, r.event.start, r.event.id) for r in recs]
+    """Ranking kandydatów: (−score, start, id); różnorodność (M4-05) tylko go przestawia, deterministycznie."""
+    now = datetime.now()
+    keys = [(-r.score, r.event.start, r.event.id) for r in recommend_breakdown(storage, demo_user, now=now)]
     assert keys == sorted(keys)
+    first = recommend_events(storage, demo_user, limit=50, now=now)
+    assert first == recommend_events(storage, demo_user, limit=50, now=now)

@@ -38,3 +38,14 @@ def test_weight_sliders_change_ranking(sandbox: AppTest):
     assert not sandbox.exception, sandbox.exception
     assert _column(sandbox, "osoba")[0] == "Natalia"                  # same tagi IDF
     assert _column(sandbox, "miejsce przy WEIGHTS")[0] == 2            # przy WEIGHTS była druga
+
+
+def test_rec_weight_sliders_change_recommendations(sandbox: AppTest):
+    def top_rec() -> str:
+        return list(sandbox.dataframe[1].value["event"])[0]
+
+    assert top_rec() == "Oprowadzanie kuratorskie: Wyspiański"       # tagi + 3 podobne osoby
+    sandbox.slider(key="m4_rw_social").set_value(0.0)
+    sandbox.run()
+    assert not sandbox.exception, sandbox.exception
+    assert top_rec() == "Przedpremierowy pokaz + Q&A z reżyserką"     # same tagi: pełne pokrycie „kino”

@@ -12,7 +12,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import streamlit as st  # noqa: E402
 
-from m4_matching.engine import WEIGHTS, match_breakdown, match_reason, recommend_events  # noqa: E402
+from m4_matching.engine import (  # noqa: E402
+    REC_WEIGHTS,
+    WEIGHTS,
+    match_breakdown,
+    match_reason,
+    recommend_breakdown,
+    recommend_events,
+)
 from shared.mock_data import DEMO_USER_ID  # noqa: E402
 from shared.storage import get_storage  # noqa: E402
 
@@ -22,6 +29,10 @@ SIGNAL_LABELS = {
     "co_attendance": "wspólne eventy",
     "event_fit": "pasuje do eventu",
     "status": "status",
+}
+REC_SIGNAL_LABELS = {
+    "tags": "pasuje tagami",
+    "social": "idą podobni",
 }
 
 st.set_page_config(page_title="M4 sandbox", layout="wide")
@@ -48,6 +59,13 @@ weights = {
 }
 st.sidebar.caption("Domyślne: " + ", ".join(f"{k}={v:.2f}" for k, v in WEIGHTS.items()))
 
+st.sidebar.markdown("### Wagi rekomendacji")
+rec_weights = {
+    name: st.sidebar.slider(REC_SIGNAL_LABELS.get(name, name), 0.0, 1.0, float(default), 0.05,
+                            key=f"m4_rw_{name}")
+    for name, default in REC_WEIGHTS.items()
+}
+
 default_rank = {b.user.id: i for i, b in enumerate(match_breakdown(storage, user, event_id), start=1)}
 
 col_matches, col_recs = st.columns(2)
@@ -64,9 +82,18 @@ with col_matches:
         rows.append(row)
     st.dataframe(rows, width="stretch", hide_index=True)
 with col_recs:
-    st.subheader("Rekomendacje")
+    st.subheader("Rekomendacje (top 5 po regule różnorodności)")
     st.dataframe(
-        [{"event": r.event.title, "score": r.score, "powód": r.reason}
-         for r in recommend_events(storage, user, limit=10)],
-        width="stretch",
+        [{"event": r.event.title, "kategoria": r.event.meta.label, "score": r.score, "powód": r.reason}
+         for r in recommend_events(storage, user, weights=rec_weights)],
+        width="stretch", hide_index=True,
     )
+    with st.expander("Wszyscy kandydaci — rozbicie na sygnały"):
+        st.dataframe(
+            [{"event": r.event.title, "score": r.score,
+              **{label: round(r.signals[name], 3) if name in r.signals else None
+                 for name, label in REC_SIGNAL_LABELS.items()},
+              "termin ×": round(r.time_factor, 3), "podobni": ", ".join(p.name for p in r.similar_people)}
+             for r in recommend_breakdown(storage, user, weights=rec_weights)],
+            width="stretch", hide_index=True,
+        )

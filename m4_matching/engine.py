@@ -11,6 +11,7 @@ Pomocnicze (nowe):
     match_breakdown(storage, user, event_id, *, weights=None) -> list[MatchBreakdown]  (sandbox, M4-03)
     match_reason(breakdown) -> str            uzasadnienie PL ≤ 60 znaków (M4-03)
     plural_pl(n, one, few, many) -> str       odmiana rzeczownika po liczebniku
+    recommend_breakdown(storage, user, *, weights=None, now=None) -> list[RecBreakdown]  (sandbox, M4-05)
 
 Model scoringu:
     score = Σ wᵢ·sᵢ / Σ wᵢ   (po sygnałach obecnych w danym kontekście), przycięte do [0, 1].
@@ -22,6 +23,9 @@ Model scoringu:
       event_fit      |tagi osoby ∩ tagi eventu| / |tagi eventu|; event bez tagów → sygnału brak
                      (nie 0), więc słabo otagowane eventy ze scrapera nie zaniżają procentów
       status         GOING = 1.0, INTERESTED = 0.5
+    Rekomendacje (REC_WEIGHTS), potem × kara za termin i reguła max 2 eventów z kategorii:
+      tags           |tagi usera ∩ tagi eventu| / |tagi eventu|; event bez tagów → sygnału brak
+      social         min(Σ podobieństw widocznych uczestników ze wspólnym tagiem / 0.5, 1)
 
 Determinizm (ten sam stan danych → ten sam wynik i kolejność):
     * sumy liczymy przez math.fsum — wynik nie zależy od kolejności iteracji po zbiorach
@@ -37,7 +41,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from shared.models import AttendanceStatus, MatchResult, Recommendation, User, normalize_tag
+from shared.models import AttendanceStatus, Event, MatchResult, Recommendation, User, normalize_tag
 from shared.storage import Storage
 
 # --------------------------------------------------------------------------- #
@@ -59,6 +63,16 @@ STATUS_VALUE: dict[AttendanceStatus, float] = {
 }
 
 SCORE_DECIMALS = 3          # precyzja score w MatchResult/Recommendation (i w porównaniu remisów)
+
+# Rekomendacje (M4-05): score = weighted_score(sygnały, REC_WEIGHTS) × kara za termin
+REC_WEIGHTS: dict[str, float] = {
+    "tags": 0.60,            # |tagi usera ∩ tagi eventu| / |tagi eventu|
+    "social": 0.40,          # podobne osoby (wspólny tag) idą: min(Σ podobieństw / REC_SOCIAL_SATURATION, 1)
+}
+REC_SOCIAL_SATURATION = 0.5     # ≈ dwie mocno podobne osoby (podobieństwo IDF ~0.25) → pełny sygnał
+REC_TIME_PENALTY = 0.30         # event za ≥ REC_TIME_HORIZON_DAYS dni traci 30% score (liniowo od dziś)
+REC_TIME_HORIZON_DAYS = 14
+REC_MAX_PER_CATEGORY = 2        # różnorodność: max tyle eventów jednej kategorii w top `limit`
 
 
 # --------------------------------------------------------------------------- #
@@ -336,25 +350,139 @@ def match_reason(b: MatchBreakdown) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def recommend_events(storage: Storage, user: User, *, limit: int = 5) -> list[Recommendation]:
-    """Nadchodzące eventy, na które user się jeszcze nie zapisał, ranking po wspólnych tagach."""
+@dataclass(frozen=True)
+class RecBreakdown:
+    """Kandydat na rekomendację z rozbiciem na sygnały — do sandboxa i uzasadnień (M4-05)."""
+
+    event: Event
+    score: float                             # zaokrąglony, już z karą za termin
+    signals: Mapping[str, float]             # sygnały w [0, 1] PRZED ważeniem (brak klucza = brak sygnału)
+    time_factor: float                       # mnożnik kary za termin, w [1 − REC_TIME_PENALTY, 1]
+    fit_tags: tuple[str, ...]                # tagi usera, które ma event (kolejność jak w evencie)
+    similar_people: tuple[User, ...]         # widoczni uczestnicy ze wspólnym tagiem, od najbardziej podobnych
+
+
+def _time_factor(event: Event, now: datetime) -> float:
+    """1.0 dla eventu dziś/trwającego, liniowo w dół do 1 − REC_TIME_PENALTY za REC_TIME_HORIZON_DAYS dni."""
+    days = max((event.start - now).total_seconds() / 86_400, 0.0)
+    return 1.0 - REC_TIME_PENALTY * min(days / REC_TIME_HORIZON_DAYS, 1.0)
+
+
+def recommend_breakdown(
+    storage: Storage, user: User, *, weights: Mapping[str, float] | None = None,
+    now: datetime | None = None,
+) -> list[RecBreakdown]:
+    """Wszyscy kandydaci posortowani po score — BEZ reguły różnorodności (ta jest w recommend_events).
+
+    Kandydat: event nadchodzący lub trwający, user nie jest zapisany, a event pasuje tagami
+    albo idzie na niego ktoś podobny (widoczny, ≥ 1 wspólny tag z userem).
+    """
+    weights = REC_WEIGHTS if weights is None else weights
+    now = now or datetime.now()
     joined = {a.event_id for a in storage.list_user_attendance(user.id)}
-    now = datetime.now()
-    user_tags = set(user.tags)
-    recs: list[Recommendation] = []
-    for event in storage.list_events():
-        if event.id in joined or event.end_or_start < now:
+    user_tags = set(_unique_tags(user.tags))
+    candidates = [e for e in storage.list_events() if e.id not in joined and e.end_or_start >= now]
+    visible = {
+        e.id: [a.user_id for a in storage.list_attendees(e.id) if a.open_to_meet and a.user_id != user.id]
+        for e in candidates
+    }
+    people = storage.get_users({uid for ids in visible.values() for uid in ids})
+    idf = build_idf(storage.list_users())
+    similarity = {                                    # raz na osobę, nie raz na parę (osoba, event)
+        uid: tag_similarity(user.tags, person.tags, idf=idf)[0] for uid, person in people.items()
+    }
+
+    results: list[RecBreakdown] = []
+    for event in candidates:
+        fit_tags = tuple(t for t in event.tags if t in user_tags)
+        similar = sorted(
+            (people[uid] for uid in visible[event.id] if uid in people and similarity[uid] > 0),
+            key=lambda p: (-similarity[p.id], p.name.casefold(), p.id),
+        )
+        if not fit_tags and not similar:
             continue
-        shared = [t for t in event.tags if t in user_tags]
-        if not shared:
-            continue
-        score = len(shared) / max(len(event.tags), 1)
-        recs.append(Recommendation(
-            event=event, score=round(score, SCORE_DECIMALS),
-            reason=_tag_list("Pasuje do: ", shared, REASON_MAX_LEN) or "Pasuje do Twoich zainteresowań",
+        signals = {"social": min(math.fsum(similarity[p.id] for p in similar) / REC_SOCIAL_SATURATION, 1.0)}
+        if event.tags:                                # event bez tagów → sygnału brak (nie 0), jak event_fit
+            signals["tags"] = len(fit_tags) / len(event.tags)
+        factor = _time_factor(event, now)
+        results.append(RecBreakdown(
+            event=event,
+            score=round(weighted_score(signals, weights) * factor, SCORE_DECIMALS),
+            signals=signals,
+            time_factor=factor,
+            fit_tags=fit_tags,
+            similar_people=tuple(similar),
         ))
-    recs.sort(key=lambda r: (-r.score, r.event.start, r.event.id))
-    return recs[:limit]
+    results.sort(key=lambda r: (-r.score, r.event.start, r.event.id))
+    return results
+
+
+def _diversify(ranked: list[RecBreakdown], limit: int) -> list[RecBreakdown]:
+    """Zachłannie od najlepszego, max REC_MAX_PER_CATEGORY z jednej kategorii.
+
+    Gdy różnorodnych kandydatów jest za mało, wolne miejsca dopełniamy pominiętymi (wg score) —
+    lepiej 5 rekomendacji z powtórzoną kategorią niż 3.
+    """
+    picked: list[RecBreakdown] = []
+    skipped: list[RecBreakdown] = []
+    per_category: Counter = Counter()
+    for r in ranked:
+        if len(picked) >= limit:
+            break
+        if per_category[r.event.category] < REC_MAX_PER_CATEGORY:
+            picked.append(r)
+            per_category[r.event.category] += 1
+        else:
+            skipped.append(r)
+    return picked + skipped[:max(limit - len(picked), 0)]
+
+
+def _people_phrases(people: tuple[User, ...]) -> list[str]:
+    """Warianty „kto idzie” od najdłuższego: z imionami, potem sama liczba."""
+    n = len(people)
+    if not n:
+        return []
+    names = [p.name for p in people[:2]]
+    if n == 1:
+        with_names = f"Idzie {names[0]}"
+    elif n == 2:
+        with_names = f"Idą {names[0]} i {names[1]}"
+    else:
+        rest = n - 2
+        with_names = (f"Idą {names[0]}, {names[1]} i {rest} "
+                      + plural_pl(rest, "inna osoba", "inne osoby", "innych osób"))
+    count = (plural_pl(n, "Idzie", "Idą", "Idzie") + f" {n} "
+             + plural_pl(n, "podobna osoba", "podobne osoby", "podobnych osób"))
+    return [with_names, count]
+
+
+def recommendation_reason(r: RecBreakdown) -> str:
+    """„Pasuje do: kino · Idą Bartek i Ania”; zawsze niepuste i ≤ REASON_MAX_LEN znaków."""
+    people = [p for p in _people_phrases(r.similar_people) if len(p) <= REASON_MAX_LEN]
+    if r.fit_tags:
+        for phrase in people:
+            budget = REASON_MAX_LEN - len(REASON_SEP) - len(phrase)
+            if tags := _tag_list("Pasuje do: ", r.fit_tags, budget, truncate=False):
+                return tags + REASON_SEP + phrase
+        if tags := _tag_list("Pasuje do: ", r.fit_tags, REASON_MAX_LEN):
+            return tags
+    return people[0] if people else "Pasuje do Twoich zainteresowań"
+
+
+def recommend_events(
+    storage: Storage, user: User, *, limit: int = 5, weights: Mapping[str, float] | None = None,
+    now: datetime | None = None,
+) -> list[Recommendation]:
+    """Nadchodzące eventy, na które user się jeszcze nie zapisał: tagi + podobne osoby, kara za
+    odległy termin, max REC_MAX_PER_CATEGORY z jednej kategorii.
+
+    `weights` — opcjonalne nadpisanie REC_WEIGHTS (sandbox); `now` — punkt odniesienia (testy).
+    """
+    ranked = recommend_breakdown(storage, user, weights=weights, now=now)
+    return [
+        Recommendation(event=r.event, score=r.score, reason=recommendation_reason(r))
+        for r in _diversify(ranked, limit)
+    ]
 
 
 if __name__ == "__main__":  # python -m m4_matching.engine  — szybki podgląd na mockach
