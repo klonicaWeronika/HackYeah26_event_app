@@ -21,8 +21,16 @@ from pydantic import ValidationError
 
 from m2_scraper.base import PoliteHttp
 from m2_scraper.geocode import geocode
-from m2_scraper.normalize import DateSpan, clean_text, parse_pl_datetime, shorten
-from shared.models import Category, Event, fold_text, is_in_krakow, stable_id
+from m2_scraper.normalize import (
+    DateSpan,
+    clean_text,
+    extract_tags,
+    find_price,
+    map_category,
+    parse_pl_datetime,
+    shorten,
+)
+from shared.models import Event, fold_text, is_in_krakow, stable_id
 
 log = logging.getLogger(__name__)
 
@@ -205,8 +213,13 @@ def build_events(card: KarnetCard, detail: KarnetDetail | None, today: date, hor
             spans.append(span)
 
     title = (detail.title if detail else "") or card.title
+    source_type = (detail.type if detail else "") or card.type
     description = shorten((detail.description if detail else "") or card.lead)
     image_url = (detail.image_url if detail else None) or card.image_url
+    # tagi i kategoria z tytułu + skróconego opisu: pełny opis daje za dużo przypadkowych słów kluczowych
+    category = map_category(source_type, title, description)
+    tags = extract_tags(f"{title} {description}", source_type=source_type)
+    price = find_price(detail.info, detail.description) if detail else None
 
     events: list[Event] = []
     for span in sorted(set(spans), key=lambda s: s.start):
@@ -214,8 +227,8 @@ def build_events(card: KarnetCard, detail: KarnetDetail | None, today: date, hor
         try:
             events.append(Event(
                 id=stable_id("ev", source_name, id_key), title=title, description=description,
-                category=Category.OTHER, tags=[], start=span.start, end=span.end,
-                venue=venue, address=address, lat=lat, lon=lon, price_pln=None,
+                category=category, tags=tags, start=span.start, end=span.end,
+                venue=venue, address=address, lat=lat, lon=lon, price_pln=price,
                 url=card.url, image_url=image_url, source=f"scraper:{source_name}",
             ))
         except ValidationError as exc:

@@ -14,7 +14,7 @@ from m2_scraper.sources.karnet import (
     split_location,
 )
 from m2_scraper.tests.conftest import FakeHttp, read_fixture
-from shared.models import is_in_krakow
+from shared.models import Category, is_in_krakow
 
 TODAY = date(2026, 10, 3)        # dzień pobrania fixture
 DIGGER_URL = BASE_URL + "/64992-krakow-digger-pokazy-przedpremierowe"
@@ -90,6 +90,25 @@ def test_build_events_one_event_per_future_showing():
     assert is_in_krakow(e.lat, e.lon)
     # determinizm: ten sam HTML -> te same ID (deduplikacja przy ponownym uruchomieniu)
     assert [x.id for x in build_events(card, detail, TODAY, date(2026, 10, 17))] == [x.id for x in events]
+
+
+def test_build_events_normalizes_category_tags_and_price():
+    card = _card("karnet_list_p5.html", DIGGER_URL)
+    e = build_events(card, parse_detail(read_fixture("karnet_detail_digger.html")), TODAY, TODAY)[0]
+    assert e.category == Category.CINEMA
+    assert "kino" in e.tags
+    assert e.price_pln == 31.0                                         # "31 zł (normalny) 26 zł (ulgowy)"
+
+    sbb_url = BASE_URL + "/64519-krakow-sbb-skrzek-anthimos-piotrowski-w-studio"
+    sbb = build_events(_card("karnet_list_p5.html", sbb_url), parse_detail(read_fixture("karnet_detail_sbb.html")),
+                       TODAY, TODAY)[0]
+    assert sbb.category == Category.MUSIC and "rock" in sbb.tags      # "rocka progresywnego"
+
+    alicja_url = BASE_URL + "/61062-krakow-alicja-w-krainie-czarow-teatr-groteska"
+    cards, _ = parse_listing(read_fixture("karnet_list_p5.html"))
+    alicja = build_events(next(c for c in cards if c.url == alicja_url),
+                          parse_detail(read_fixture("karnet_detail_alicja.html")), TODAY, date(2026, 10, 10))
+    assert len(alicja) == 6 and all(a.category == Category.THEATRE and "teatr" in a.tags for a in alicja)
 
 
 def test_build_events_respects_horizon_and_card_fallback():

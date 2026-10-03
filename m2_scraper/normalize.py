@@ -1,17 +1,19 @@
 """
-M2 — normalizacja surowych pól ze źródeł: polskie daty -> datetime.
+M2 — normalizacja surowych pól ze źródeł:
+polskie daty -> datetime, ceny -> price_pln, typ źródła -> Category, słowa kluczowe -> tagi.
 
-Czyste funkcje (tekst -> dane), bez sieci i bez stanu — testowane tabelarycznie w tests/.
+Czyste funkcje (tekst -> dane), bez sieci i bez stanu — testowane tabelarycznie w tests/test_normalize.py.
 Wszystkie datetime są NAIWNE (czas lokalny Europe/Warsaw), zgodnie z shared/models.py.
 """
 
 from __future__ import annotations
 
+import calendar
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, time
 
-from shared.models import fold_text
+from shared.models import Category, fold_text, normalize_tag
 
 # Klucz = pierwsze 3 litery nazwy miesiąca bez ogonków (dopełniacz, mianownik i skróty mają wspólny prefiks).
 _MONTHS = {
@@ -112,6 +114,20 @@ def _nearest_future(month: int, day: int, today: date) -> date | None:
     return None
 
 
+_MONTH_YEAR_RE = re.compile(r"(?<![a-z])([a-z]{3,})\s+(\d{4})(?!\d)")
+
+
+def _parse_months_only(text: str) -> DateSpan | None:
+    """'październik 2026 - listopad 2026' -> od 1. dnia pierwszego do ostatniego dnia ostatniego miesiąca."""
+    months = [(int(y), _MONTHS[m[:3]]) for m, y in _MONTH_YEAR_RE.findall(fold_text(text)) if m[:3] in _MONTHS]
+    if not months:
+        return None
+    (y1, m1), (y2, m2) = months[0], months[-1]
+    start = datetime(y1, m1, 1)
+    end = datetime.combine(date(y2, m2, calendar.monthrange(y2, m2)[1]), END_OF_DAY)
+    return DateSpan(start, end, has_time=False) if end > start else None
+
+
 def parse_pl_datetime(text: str, today: date | None = None) -> DateSpan | None:
     """Polski termin wydarzenia -> DateSpan. Rozumie m.in.:
 
@@ -123,7 +139,7 @@ def parse_pl_datetime(text: str, today: date | None = None) -> DateSpan | None:
     today = today or date.today()
     points = _points(text or "")
     if not points:
-        return None
+        return _parse_months_only(text or "")
 
     first, last = points[0], points[-1]
     if len(points) == 1 and first.day_from is None:                       # jeden dzień
@@ -160,3 +176,200 @@ def parse_pl_datetime(text: str, today: date | None = None) -> DateSpan | None:
     if end <= start:
         end = datetime.combine(end_d, END_OF_DAY)
     return DateSpan(start, end, has_time=start_pt.t1 is not None)
+
+
+# --------------------------------------------------------------------------- #
+# Ceny
+# --------------------------------------------------------------------------- #
+
+_NUM = r"\d{1,3}(?:[  ]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?"
+_PRICE_GROUP_RE = re.compile(rf"((?:(?:{_NUM})\s*(?:-|/|,|i|lub|albo)\s*)*(?:{_NUM}))\s*(?:zl|pln)\b")
+_FREE_RE = re.compile(
+    r"wstep\W{0,3}(?:jest\s+)?(?:wolny|bezplatny|darmowy)|wejscie\W{0,3}(?:wolne|bezplatne)"
+    r"|bezplatn|darmow|za darmo|nieodplatn|free entry|admission free"
+)
+_PRICE_CONTEXT_RE = re.compile(r"bilet|wstep|wejsci|cen[ay]|koszt|oplat|karnet|zl\b|pln\b")
+
+
+def _amounts(group: str) -> list[float]:
+    return [float(n.replace(" ", "").replace(" ", "").replace(",", "."))
+            for n in re.findall(_NUM, group)]
+
+
+def parse_price(text: str) -> float | None:
+    """Cena biletu w PLN: 'wstęp wolny' -> 0, 'od 40 zł' -> 40, '60/40 zł' -> 60, brak -> None.
+
+    Normalna/ulgowa ('60/40 zł', '31 zł (normalny) 26 zł (ulgowy)') -> normalna; zakres lub kilka kwot
+    ('40-110 zł', 'od 59 zł') -> najniższa.
+    Kwota ma pierwszeństwo przed frazą o darmowym wstępie ('30 zł, dzieci wstęp wolny' -> 30).
+    """
+    folded = fold_text(text or "").replace("–", "-").replace("—", "-")
+    found: list[tuple[float, bool]] = []
+    for m in _PRICE_GROUP_RE.finditer(folded):
+        values = _amounts(m.group(1))
+        if "/" in m.group(1):                  # "60/40 zł" = normalny/ulgowy -> pierwsza to normalna
+            found.append((values[0], True))
+            continue
+        tail = re.split(r"\d", folded[m.end():m.end() + 20], maxsplit=1)[0]
+        normal = "normaln" in tail
+        found.extend((value, normal) for value in values)
+    if found:
+        normal_prices = [v for v, is_normal in found if is_normal]
+        return min(normal_prices) if normal_prices else min(v for v, _ in found)
+    if _FREE_RE.search(folded):
+        return 0.0
+    return None
+
+
+def find_price(info: str, description: str = "") -> float | None:
+    """Najpierw dedykowane pole z ceną, potem tylko zdania opisu mówiące o biletach/wstępie
+    (żeby '10 000 zł nagrody' w opisie nie stało się ceną biletu)."""
+    price = parse_price(info)
+    if price is not None:
+        return price
+    sentences = re.split(r"(?<=[.!?])\s+|\n", description or "")
+    relevant = [s for s in sentences if _PRICE_CONTEXT_RE.search(fold_text(s))]
+    return parse_price(" ".join(relevant))
+
+
+# --------------------------------------------------------------------------- #
+# Kategorie
+# --------------------------------------------------------------------------- #
+
+# Kolejność ma znaczenie: pierwsza pasująca reguła wygrywa ("Festiwale i przeglądy filmowe" -> FESTIVAL).
+_CATEGORY_RULES: list[tuple[str, Category]] = [
+    (r"festiwal|festival", Category.FESTIVAL),
+    (r"film|kino", Category.CINEMA),
+    (r"wystaw|galeri|ekspozyc", Category.EXHIBITION),
+    (r"opera\b|muzyk|muzycz|koncert", Category.MUSIC),
+    (r"spektakl|teatr|przedstawien|operetk|musical|balet|dla dzieci", Category.THEATRE),
+    (r"sport", Category.SPORT),
+    (r"spotkani|literac|slajdowisk|meetup", Category.MEETUP),
+    (r"warsztat|wyklad", Category.WORKSHOP),
+    (r"spacer|zwiedzan|plener|happening", Category.OUTDOOR),
+    (r"kulinar|jedzen|gastro", Category.FOOD),
+]
+# Typ ogólny ("Pozostałe", brak) -> kategoria z tagów wykrytych w tytule/opisie.
+_CATEGORY_FROM_TAGS: list[tuple[set[str], Category]] = [
+    ({"bieganie", "rower", "joga", "piłka nożna"}, Category.SPORT),
+    ({"wino", "kawa", "street food", "gotowanie"}, Category.FOOD),
+    ({"spacery", "natura"}, Category.OUTDOOR),
+    ({"rękodzieło"}, Category.WORKSHOP),
+    ({"planszówki", "języki obce", "startupy", "python", "technologia"}, Category.MEETUP),
+    ({"jazz", "rock", "indie", "techno", "klasyka", "opera"}, Category.MUSIC),
+    ({"kino"}, Category.CINEMA),
+    ({"teatr"}, Category.THEATRE),
+]
+
+
+def map_category(source_type: str, title: str = "", description: str = "") -> Category:
+    """Typ wydarzenia ze źródła (np. 'Spektakle teatralne') -> Category; w razie wątpliwości OTHER."""
+    folded = fold_text(source_type or "")
+    for pattern, category in _CATEGORY_RULES:
+        if re.search(pattern, folded):
+            return category
+    tags = set(extract_tags(f"{title} {description}"))
+    for tag_set, category in _CATEGORY_FROM_TAGS:
+        if tags & tag_set:
+            return category
+    return Category.OTHER
+
+
+# --------------------------------------------------------------------------- #
+# Tagi (to na nich działa matching M4!)
+# --------------------------------------------------------------------------- #
+
+# tag -> wzorce regex na tekście po fold_text (bez ogonków, małe litery); dopasowanie od początku słowa.
+# Tagi spoza INTEREST_TAGS (pop, hip-hop, folk, blues, dla dzieci) są dozwolone — trafiają do słownika filtrów.
+TAG_KEYWORDS: dict[str, list[str]] = {
+    "jazz": [r"jazz", r"swing", r"bebop", r"big ?band"],
+    "rock": [r"rock", r"punk(?:a|u|owy|owa|owe|owej|owych|rock)?\b", r"metal(?:u|em|owy|owa|owe|owej|owych|core)?\b",
+             r"hardcore", r"grunge", r"progresyw", r"stoner", r"psychodel"],
+    "indie": [r"indie", r"alternatyw", r"shoegaze", r"szugejz", r"post-?punk", r"dream ?pop"],
+    "techno": [r"techno", r"house\b", r"elektronik", r"elektroniczn", r"dj\b", r"drum ?(?:and|&|n) ?bass",
+               r"rave\b", r"klubow[aey]\b"],
+    "klasyka": [r"symfoni", r"filharmon", r"kwartet", r"orkiestr", r"recital", r"kameraln", r"klasyczn",
+                r"organow", r"organy\b", r"chopin", r"bach\b", r"mozart", r"beethoven", r"fortepian", r"wiolonczel",
+                r"skrzyp", r"kantat", r"oratori", r"barok", r"szymanowsk", r"dvorak", r"czajkowsk", r"pianist"],
+    "opera": [r"oper(?:a|y|ze|e|owa|owy|owe|owej|owych)\b", r"opera rara"],
+    "teatr": [r"teatr", r"spektakl", r"przedstawien", r"monodram", r"inscenizac"],
+    "kino": [r"film", r"kino\b", r"kina\b", r"kinie\b", r"kinow", r"seans", r"przedpremier", r"dokumentaln",
+             r"animac"],
+    "stand-up": [r"stand-? ?up", r"kabaret", r"open mic", r"komik"],
+    "sztuka współczesna": [r"sztuk[aiey] wspolczesn", r"sztuk[aiy]? wizualn", r"galeri", r"instalacj", r"malarstw",
+                           r"malarz", r"rzezb", r"wernisaz", r"performans", r"wideoart", r"mocak", r"bunkier sztuki",
+                           r"cricotek", r"abstrakc"],
+    "fotografia": [r"fotogra", r"zdjec", r"photo", r"foto\b", r"fotospacer"],
+    "design": [r"design", r"projektow", r"plakat", r"typografi", r"grafik", r"graficzn", r"ilustrac", r"fashion",
+               r"moda\b", r"mody\b"],
+    "architektura": [r"architekt", r"modernizm", r"urbanist", r"brutalizm"],
+    # "historia/historie" w opisach to zwykle "opowieść" -> tylko jednoznaczne formy
+    "historia": [r"historyczn", r"histori[aeiy] (?:polski|krakowa|miasta|sztuki|zydow|europy|xx)", r"dziejow",
+                 r"muzeum", r"muzealn", r"zabyt", r"twierdz", r"wojn", r"dziedzictw", r"archeolog", r"legend(?!arn)",
+                 r"sredniowiecz", r"okupacj", r"rekonstrukc", r"powstani", r"wawel"],
+    "literatura": [r"literat", r"literack", r"ksiazk", r"ksiazek", r"poezj", r"poet", r"pisarz", r"pisark",
+                   r"(?:spotkani\w*|wieczor\w*) autorsk", r"czytan", r"reportaz", r"kryminal", r"wiersz", r"wydawc", r"powiesc", r"proza\b"],
+    "bieganie": [r"bieg(?:i|u|iem|owy|owe|acz\w*)?\b", r"maraton", r"polmaraton", r"run\b", r"running", r"piatka\b"],
+    "rower": [r"rower", r"kolarsk", r"bike", r"cycling"],
+    "joga": [r"joga", r"jogi\b", r"yoga", r"medytac", r"pilates"],
+    "piłka nożna": [r"pilk[aiey] nozn", r"pilkarsk", r"ekstraklas", r"futbol", r"football"],
+    "natura": [r"przyrod", r"natur(?:a|y|ze|e)\b", r"ogrod", r"botaniczn", r"ekolog", r"zwierz", r"ptak", r"lesn", r"las\b"],
+    "spacery": [r"spacer", r"zwiedzan", r"przewodnik", r"wycieczk", r"oprowadzan", r"szlak"],
+    "planszówki": [r"planszow", r"plansz[ayei]\b", r"board ?game"],
+    "gry wideo": [r"gry wideo", r"gier wideo", r"gier komputerow", r"gaming", r"gamer", r"e-?sport",
+                  r"video ?game", r"muzyk[aiey] z gier", r"wiedzmin", r"nier:", r"clair obscur"],
+    "technologia": [r"technolog", r"robot", r"ai\b", r"sztuczn\w* inteligenc", r"programow", r"hackathon",
+                    r"hackyeah", r"cyfrow", r"wirtualn", r"kodowan", r"druk 3d", r"nowe media"],
+    "python": [r"python"],
+    "startupy": [r"startup", r"start-up", r"przedsiebiorcz", r"pitch\b", r"inwestor"],
+    "nauka": [r"nauk", r"wyklad", r"fizyk", r"chemi", r"astronom", r"eksperyment", r"kosmos", r"biolog",
+              r"matematy", r"science"],
+    "języki obce": [r"jezyk\w* obc", r"language", r"in english", r"po angielsku", r"konwersac"],
+    "gotowanie": [r"gotowan", r"kulinar", r"kuchni", r"szef kuchni", r"pieczen"],
+    "street food": [r"street ?food", r"food ?truck", r"jarmark", r"festiwal smak", r"targ sniadaniow"],
+    "kawa": [r"kaw(?:a|y|e|ie|ka|iarnia|iarni)\b", r"cafe\b", r"espresso", r"barista"],
+    "wino": [r"win(?:o|a|em|ie)\b", r"winiar", r"winnic", r"degustac", r"sommelier", r"enolog"],
+    "taniec": [r"tanc", r"taniec", r"taneczn", r"balet", r"flamenco", r"tango", r"salsa", r"dance", r"choreograf",
+               r"potancowk"],
+    "rękodzieło": [r"rekodziel", r"ceramik", r"haft", r"szydel", r"handmade", r"rzemiosl", r"linoryt",
+                   r"makram", r"warsztaty plastyczn"],
+    # poza kanonicznym słownikiem — ale przydatne w filtrach i w profilach "własnych tagów"
+    "pop": [r"pop(?:u|em|owy|owa|owe|owej|owych)?\b", r"przeboj", r"hity\b"],
+    "hip-hop": [r"hip-? ?hop", r"rap(?:u|em|owy|owa|owe|owej)?\b", r"raper"],
+    "folk": [r"folk", r"(?:muzyk|piesn|zespol|kapel|tanc)\w* ludow", r"etno\b", r"etniczn", r"fado"],  # nie "Teatr Ludowy"
+    "blues": [r"blues"],
+    "dla dzieci": [r"dla dzieci", r"dzieci\b", r"rodzinn", r"familijn", r"\d{1,2}\+"],
+}
+_TAG_RES = {
+    tag: re.compile(r"(?<![a-z0-9])(?:" + "|".join(patterns) + ")") for tag, patterns in TAG_KEYWORDS.items()
+}
+# typ wydarzenia ze źródła -> tagi domyślne (zawsze dopisywane)
+_TYPE_TAGS: list[tuple[str, list[str]]] = [
+    (r"spektakl|teatr|przedstawien|operetk|musical", ["teatr"]),
+    (r"taneczn|balet", ["taniec"]),
+    (r"kabaret|stand", ["stand-up"]),
+    (r"film|kino", ["kino"]),
+    (r"klasyczn|filharmon", ["klasyka"]),
+    (r"opera\b", ["opera"]),
+    (r"klubow", ["techno"]),
+    (r"literac|literatur", ["literatura"]),
+    (r"spacer|zwiedzan", ["spacery"]),
+    (r"dzieci|dziecie", ["dla dzieci"]),
+]
+_ART_TAGS = {"sztuka współczesna", "fotografia", "historia", "design", "architektura"}
+
+
+def extract_tags(text: str, source_type: str = "") -> list[str]:
+    """Słowa kluczowe w tytule/opisie + typ ze źródła -> tagi (znormalizowane, bez duplikatów)."""
+    folded = fold_text(f"{source_type} {text}")
+    tags = [tag for tag, regex in _TAG_RES.items() if regex.search(folded)]
+    folded_type = fold_text(source_type or "")
+    for pattern, defaults in _TYPE_TAGS:
+        if re.search(pattern, folded_type):
+            tags.extend(defaults)
+    if re.search(r"wystaw|sztuk wizualn", folded_type) and not _ART_TAGS.intersection(tags):
+        tags.append("sztuka współczesna")
+    seen: dict[str, None] = {}
+    for tag in tags:
+        seen.setdefault(normalize_tag(tag), None)
+    return list(seen)
