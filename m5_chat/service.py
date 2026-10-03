@@ -12,6 +12,9 @@ Pomocnicze (bezpieczne wyświetlanie danych użytkownika, układ czatu):
 Polling przyrostowy (bufor wiadomości pokoju trzymany przez UI w session_state):
     refresh_messages(storage, room_id, buffer) -> list[ChatMessage]
     merge_messages(buffer, fresh) -> list[ChatMessage]
+Zapisy na wydarzenia („Idę!” / „Interesuje mnie”):
+    set_attendance(storage, user_id, event_id, status, *, open_to_meet=None) -> Attendance | None
+    attendance_counts(storage, event_id) -> dict[AttendanceStatus, int]
 """
 
 from __future__ import annotations
@@ -21,7 +24,7 @@ import string
 from collections.abc import Iterable
 from datetime import timedelta
 
-from shared.models import ChatMessage
+from shared.models import Attendance, AttendanceStatus, ChatMessage
 from shared.storage import Storage
 
 MAX_MESSAGE_LEN = 500
@@ -133,3 +136,33 @@ def refresh_messages(
         return storage.list_messages(room_id, limit=limit)
     since = buffer[-1].created_at - POLL_OVERLAP
     return merge_messages(buffer, storage.list_messages(room_id, since=since, limit=limit), limit=limit)
+
+
+def set_attendance(
+    storage: Storage,
+    user_id: str,
+    event_id: str,
+    status: AttendanceStatus | None,
+    *,
+    open_to_meet: bool | None = None,
+) -> Attendance | None:
+    """Zapis, zmiana statusu albo rezygnacja (`status=None`) jednym wywołaniem.
+
+    `open_to_meet=None` zachowuje dotychczasową zgodę na pokazanie w dopasowaniach
+    (nowy zapis: True — od razu widoczny u innych w `match_for_event`).
+    """
+    if status is None:
+        storage.leave_event(user_id, event_id)
+        return None
+    if open_to_meet is None:
+        current = storage.get_attendance(user_id, event_id)
+        open_to_meet = current.open_to_meet if current else True
+    return storage.join_event(user_id, event_id, status=status, open_to_meet=open_to_meet)
+
+
+def attendance_counts(storage: Storage, event_id: str) -> dict[AttendanceStatus, int]:
+    """Liczba zapisanych na wydarzenie w podziale na status (snapshot w RAM, bez SQL)."""
+    counts = dict.fromkeys(AttendanceStatus, 0)
+    for attendance in storage.list_attendees(event_id):
+        counts[attendance.status] += 1
+    return counts

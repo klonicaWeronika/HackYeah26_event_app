@@ -18,13 +18,13 @@ from collections.abc import Iterable
 import streamlit as st
 
 from m5_chat.service import (
-    BUFFER_LIMIT, css_string, escape_markdown, group_messages, refresh_messages, room_title, safe_avatar_src,
-    send_message,
+    BUFFER_LIMIT, attendance_counts, css_string, escape_markdown, group_messages, refresh_messages, room_title,
+    safe_avatar_src, send_message, set_attendance,
 )
 from shared import state
 from shared.config import CHAT_POLL_SECONDS, FEATURES
 from shared.formatting import format_time
-from shared.models import ChatMessage, Event, User
+from shared.models import AttendanceStatus, ChatMessage, Event, User
 from shared.state import View
 from shared.storage import Storage
 
@@ -173,23 +173,49 @@ def _show_more(show_key: str, shown: int) -> None:
     st.session_state[show_key] = shown + SHOW_STEP
 
 
+_STATUS_LABELS = {AttendanceStatus.GOING: "🙋 Idę!", AttendanceStatus.INTERESTED: "⭐ Interesuje mnie"}
+
+
 def render_attendance_controls(storage: Storage, event: Event, user: User) -> None:
-    """Przycisk 'Idę!' / 'Rezygnuję' + zgoda na pokazanie w dopasowaniach."""
+    """Zapis na wydarzenie: status (Idę! / Interesuje mnie; ponowny klik = rezygnacja) + zgoda na dopasowania.
+
+    Wszystko przez callbacki: zapis trafia do bazy PRZED przebiegiem skryptu, więc licznik zapisanych
+    w panelu (M1) i dopasowania (M4) pokazują nowy stan w tym samym, jedynym rerunie.
+    """
     attendance = storage.get_attendance(user.id, event.id)
+    # Klucze per osoba i wydarzenie (przełącznik „Zaloguj jako” nie przenosi stanu na inną osobę),
+    # a stan widgetów zawsze z bazy (inna karta, „Reset demo”).
+    status_key, open_key = f"m5_status_{user.id}_{event.id}", f"m5_open_{user.id}_{event.id}"
+    st.session_state[status_key] = attendance.status if attendance else None
+    st.segmented_control(
+        "Twój udział", list(AttendanceStatus), format_func=_STATUS_LABELS.get, key=status_key,
+        on_change=_on_status_change, args=(storage, user.id, event.id, status_key),
+        label_visibility="collapsed", width="stretch",
+    )
+    counts = attendance_counts(storage, event.id)
+    st.caption(
+        f"🙋 Idzie: **{counts[AttendanceStatus.GOING]}** · "
+        f"⭐ Zainteresowani: **{counts[AttendanceStatus.INTERESTED]}**"
+    )
     if attendance is None:
-        if st.button("🙋 Idę!", key=f"m5_join_{event.id}", type="primary", width="stretch"):
-            storage.join_event(user.id, event.id)
-            st.rerun()
         return
 
-    col_status, col_leave = st.columns([3, 2], vertical_alignment="center")
-    col_status.success("Idziesz ✅")
-    if col_leave.button("Rezygnuję", key=f"m5_leave_{event.id}", width="stretch"):
-        storage.leave_event(user.id, event.id)
-        st.rerun()
-
-    open_to_meet = st.toggle(
-        "Pokaż mnie innym w dopasowaniach", value=attendance.open_to_meet, key=f"m5_open_{event.id}",
+    st.session_state[open_key] = attendance.open_to_meet
+    st.toggle(
+        "Pokaż mnie innym w dopasowaniach", key=open_key,
+        on_change=_on_open_to_meet_change, args=(storage, user.id, event.id, attendance.status, open_key),
     )
-    if open_to_meet != attendance.open_to_meet:
-        storage.join_event(user.id, event.id, status=attendance.status, open_to_meet=open_to_meet)
+    st.button(
+        "Rezygnuję", key=f"m5_leave_{user.id}_{event.id}", type="tertiary",
+        on_click=set_attendance, args=(storage, user.id, event.id, None),
+    )
+
+
+def _on_status_change(storage: Storage, user_id: str, event_id: str, status_key: str) -> None:
+    set_attendance(storage, user_id, event_id, st.session_state[status_key])
+
+
+def _on_open_to_meet_change(
+    storage: Storage, user_id: str, event_id: str, status: AttendanceStatus, open_key: str,
+) -> None:
+    set_attendance(storage, user_id, event_id, status, open_to_meet=st.session_state[open_key])
