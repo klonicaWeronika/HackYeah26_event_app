@@ -67,3 +67,28 @@ def test_card_shortens_long_text_and_has_no_newlines():
     out = user_card_html(user)
     assert "…" in out and "słowo " * 20 not in out
     assert "\n" not in out, "wcięty/łamany HTML markdown zamienia na blok kodu"
+
+
+# --------------------------------------------------------------------------- #
+# M3-06: HTML podglądu profilu
+# --------------------------------------------------------------------------- #
+
+def test_profile_header_escapes_and_keeps_bio_lines_without_newlines():
+    from m3_profile.views import _profile_header_html
+
+    evil = User(id="u_x", name="<b>Zła</b>", bio="Linia 1\n\n<script>alert(1)</script>\n**gruby**")
+    out = _profile_header_html(evil, "Macie <i>coś</i>")
+    assert "<b>" not in out and "<script>" not in out and "<i>" not in out
+    assert "\n" not in out and out.count("<br>") == 3       # pusta linia nie zamyka bloku HTML w markdownie
+
+
+def test_event_row_escapes_title_and_venue():
+    from datetime import datetime
+
+    from m3_profile.views import _event_row_html
+    from shared.models import Event
+
+    event = Event(id="e", title="<img src=x onerror=alert(1)>", venue="<b>Klub</b>",
+                  start=datetime(2030, 1, 1, 20), lat=50.06, lon=19.94)
+    out = _event_row_html(event, hidden=True)
+    assert "<img" not in out and "<b>Klub" not in out and "ukryte w dopasowaniach" in out

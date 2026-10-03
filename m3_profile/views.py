@@ -13,11 +13,12 @@ import zlib
 import streamlit as st
 
 from m3_profile.avatar import AvatarError, avatar_from_upload  # re-eksport: publiczne API M3 (TASK_SPEC §3.2)
+from m3_profile.profile_data import profile_overlap
 from m3_profile.validation import BIO_MAX, NAME_MAX, TAGS_MAX, TAGS_MIN, validate_profile
 from shared import state
 from shared.config import DEFAULT_USER_ID, FEATURES
 from shared.formatting import format_when
-from shared.models import INTEREST_TAGS, MatchResult, User, new_id
+from shared.models import INTEREST_TAGS, Event, MatchResult, User, new_id
 from shared.storage import Storage
 from shared.state import View
 
@@ -434,16 +435,109 @@ def render_onboarding(storage: Storage) -> User | None:
     return None
 
 
-def render_profile_view(storage: Storage, user: User) -> None:
-    """Publiczny profil innej osoby (opcjonalne)."""
-    st.button("← Wróć do mapy", on_click=state.go_to, args=(View.MAP,), key="m3_back_from_profile")
-    render_avatar(user, 96, caption=user.name)
-    if user.bio:
-        st.write(user.bio)
-    if user.tags:
-        st.markdown(" ".join(f"`{t}`" for t in user.tags))
+# --------------------------------------------------------------------------- #
+# Podgląd profilu (M3-06): co mamy wspólnego + przyszłe wydarzenia + „Napisz”
+# --------------------------------------------------------------------------- #
 
-    st.markdown("#### Wybiera się na")
-    events = [storage.get_event(a.event_id) for a in storage.list_user_attendance(user.id)]
-    for event in sorted((e for e in events if e), key=lambda e: e.start):
-        st.markdown(f"- {event.meta.emoji} **{event.title}** — {format_when(event)}")
+_PV_MAX_EVENTS = 8
+
+
+def _plural(n: int, one: str, few: str, many: str) -> str:
+    """Polska odmiana: 1 wydarzenie, 2–4 wydarzenia, 5+ wydarzeń (12–14 też „many”)."""
+    if n == 1:
+        return f"{n} {one}"
+    return f"{n} {few if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14) else many}"
+
+
+def _profile_header_html(user: User, subtitle: str) -> str:
+    """Awatar 96 px + imię + podtytuł + bio. Nowe linie bio -> <br> (pusta linia zamknęłaby blok HTML)."""
+    bio = html.escape(user.bio).replace("\n", "<br>")
+    bio_html = f'<div style="margin-top:6px;">{bio}</div>' if bio else ""
+    return (
+        '<div style="display:flex;gap:16px;align-items:center;margin:8px 0 4px;">'
+        f"{avatar_html(user, 96)}"
+        '<div style="min-width:0;">'
+        f'<div style="font-size:1.5rem;font-weight:700;line-height:1.2;">{html.escape(user.name)}</div>'
+        f'<div style="opacity:0.7;font-size:0.9rem;">{html.escape(subtitle)}</div>'
+        f"{bio_html}</div></div>"
+    )
+
+
+def _event_row_html(event: Event, *, hidden: bool = False) -> str:
+    details = f"{format_when(event)} · {event.venue}"
+    hidden_note = " · 🙈 ukryte w dopasowaniach" if hidden else ""
+    return (
+        f"{event.meta.emoji} <b>{html.escape(event.title)}</b><br>"
+        f'<span style="opacity:0.7;font-size:0.85rem;">{html.escape(details)}{hidden_note}</span>'
+    )
+
+
+def _show_event_on_map(event_id: str) -> None:
+    state.select_event(event_id)
+    state.go_to(View.MAP)
+
+
+def _render_event_rows(events: list[Event], hidden_ids: frozenset[str] = frozenset()) -> None:
+    for event in events[:_PV_MAX_EVENTS]:
+        col_text, col_button = st.columns([5, 1], vertical_alignment="center")
+        col_text.markdown(_event_row_html(event, hidden=event.id in hidden_ids), unsafe_allow_html=True)
+        col_button.button("Pokaż", key=f"m3_pv_show_{event.id}", type="tertiary",
+                          on_click=_show_event_on_map, args=(event.id,),
+                          help="Otwórz to wydarzenie w panelu obok mapy.")
+    if len(events) > _PV_MAX_EVENTS:
+        more = _plural(len(events) - _PV_MAX_EVENTS, "wydarzenie", "wydarzenia", "wydarzeń")
+        st.caption(f"…i jeszcze {more}.")
+
+
+def render_profile_view(storage: Storage, user: User) -> None:
+    """Profil osoby (z karty w panelu): wspólne zainteresowania i wspólne PRZYSZŁE wydarzenia, „Napisz”.
+
+    „← Wróć do mapy” nie zmienia wybranego wydarzenia — prawy panel zostaje otwarty.
+    """
+    viewer = storage.get_user(state.current_user_id())
+    own = viewer is not None and viewer.id == user.id
+    overlap = profile_overlap(storage, viewer, user)
+    upcoming = len(overlap.common_events) + len(overlap.other_events)
+
+    actions: list[tuple[str, dict]] = [("← Wróć do mapy", dict(
+        key="m3_back_from_profile", on_click=state.go_to, args=(View.MAP,)))]
+    if own:
+        actions.append(("✏️ Edytuj profil", dict(key="m3_pv_edit", on_click=state.go_to,
+                                                 args=(View.PROFILE_EDIT,))))
+    elif (open_dm := _dm_callback()) is not None and viewer is not None:
+        actions.append(("💬 Napisz", dict(key="m3_pv_dm", on_click=open_dm, args=(viewer.id, user.id),
+                                          type="primary")))
+    for col, (label, params) in zip(st.columns(len(actions) + 1)[: len(actions)], actions):
+        col.button(label, width="stretch", **params)
+
+    if own:
+        subtitle = "To Twój profil — tak widzą Cię inni."
+    else:
+        parts = []
+        if overlap.shared_tags:
+            parts.append(_plural(len(overlap.shared_tags), "wspólne zainteresowanie",
+                                 "wspólne zainteresowania", "wspólnych zainteresowań"))
+        if overlap.common_events:
+            parts.append(_plural(len(overlap.common_events), "wspólne wydarzenie", "wspólne wydarzenia",
+                                 "wspólnych wydarzeń"))
+        subtitle = "Macie " + " i ".join(parts) + "." if parts else "Zobacz, dokąd się wybiera."
+    st.markdown(_profile_header_html(user, subtitle), unsafe_allow_html=True)
+
+    st.markdown("#### Zainteresowania" if own else "#### 🤝 Wspólne zainteresowania")
+    chips = [_chip_html(t, True) for t in overlap.shared_tags]
+    chips += [_chip_html(t, False) for t in overlap.other_tags]
+    if chips:
+        st.markdown(f'<div style="display:flex;flex-wrap:wrap;gap:6px;">{"".join(chips)}</div>',
+                    unsafe_allow_html=True)
+    if not own and not overlap.shared_tags:
+        st.caption("Brak wspólnych zainteresowań — może połączy Was wydarzenie?")
+
+    if overlap.common_events:
+        st.markdown("#### 📅 Wspólne wydarzenia")
+        _render_event_rows(overlap.common_events)
+    if overlap.other_events:
+        st.markdown("#### Twoje nadchodzące wydarzenia" if own else
+                    ("#### Wybiera się też na" if overlap.common_events else "#### Wybiera się na"))
+        _render_event_rows(overlap.other_events, overlap.hidden_event_ids)
+    if not upcoming:
+        st.caption("Brak nadchodzących wydarzeń.")

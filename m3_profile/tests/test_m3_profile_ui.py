@@ -297,7 +297,8 @@ def test_onboarding_with_photo(ui_storage):
     at = _start_onboarding(_app())
     _upload(at, _jpeg())
     _fill_onboarding(at, "Foto", ["jazz", "kino", "kawa"])
-    assert ui_storage.get_user(at.session_state[Keys.USER_ID]).avatar_url.startswith("data:image/jpeg;base64,")
+    created = ui_storage.get_user(at.session_state[Keys.USER_ID])
+    assert created.avatar_url.startswith("data:image/jpeg;base64,")
 
 
 def test_back_from_onboarding_creates_nothing(ui_storage):
@@ -420,7 +421,8 @@ def test_dm_button_calls_m5_open_dm_with_me_and_other(cards, monkeypatch):
     monkeypatch.setitem(FEATURES, "dm_chat", True)
     monkeypatch.setattr(chat_view, "open_dm", lambda me, other: calls.append((me, other)), raising=False)
     _run(cards)
-    assert {b.key for b in cards.button if b.key.endswith("_dm")} == {"t_a_dm", "t_b_dm"}   # bez własnej karty
+    dm_keys = {b.key for b in cards.button if b.key.endswith("_dm")}
+    assert dm_keys == {"t_a_dm", "t_b_dm"}                              # bez własnej karty
     cards.button(key="t_a_dm").click()
     _run(cards)
     assert calls == [(DEMO_USER_ID, "u_kuba")]
@@ -437,3 +439,72 @@ def test_match_cards_in_full_app_panel(ui_storage):
     assert matches and len(bars) == len(matches)
     for m in matches:
         assert at.button(key=f"m1_match_{event_id}_{m.user.id}_profile")
+
+
+# --------------------------------------------------------------------------- #
+# M3-06: podgląd profilu
+# --------------------------------------------------------------------------- #
+
+def _markdown_text(at: AppTest) -> str:
+    return "\n".join(m.value for m in at.markdown)
+
+
+def test_card_to_profile_and_back_keeps_selected_event(ui_storage):
+    """DoD M3-06: karta w panelu -> profil -> powrót do mapy z zachowanym wybranym wydarzeniem."""
+    event_id = "e_jazz_alchemia"
+    at = _app(**{Keys.SELECTED_EVENT_ID: event_id})
+    at.button(key=f"m1_match_{event_id}_u_bartek_profile").click()
+    _run(at)
+    assert at.session_state[Keys.VIEW] is View.PROFILE_VIEW
+    assert at.session_state[Keys.VIEWED_USER_ID] == "u_bartek"
+    text = _markdown_text(at)
+    assert "Bartek" in text and "Wspólne zainteresowania" in text and "Wspólne wydarzenia" in text
+    assert "✓ jazz" in text and "Jam session jazzowy" in text
+    assert at.button(key=f"m3_pv_show_{event_id}")                     # wspólne wydarzenie z przyciskiem
+    at.button(key="m3_back_from_profile").click()
+    _run(at)
+    assert at.session_state[Keys.VIEW] is View.MAP
+    assert at.session_state[Keys.SELECTED_EVENT_ID] == event_id
+
+
+def test_profile_lists_only_upcoming_events(ui_storage):
+    from datetime import timedelta
+
+    from shared.models import Event, now
+
+    past = Event(id="e_minione", title="Minione wydarzenie", start=now() - timedelta(days=3),
+                 venue="X", lat=50.06, lon=19.94)
+    ui_storage.upsert_event(past)
+    ui_storage.join_event("u_bartek", past.id)
+    at = _app(**{Keys.VIEW: View.PROFILE_VIEW, Keys.VIEWED_USER_ID: "u_bartek"})
+    assert "Minione wydarzenie" not in _markdown_text(at)
+    assert not [b for b in at.button if b.key == "m3_pv_show_e_minione"]
+
+
+def test_show_event_button_opens_it_on_map(ui_storage):
+    at = _app(**{Keys.VIEW: View.PROFILE_VIEW, Keys.VIEWED_USER_ID: "u_bartek"})
+    at.button(key="m3_pv_show_e_fotospacer").click()
+    _run(at)
+    assert at.session_state[Keys.VIEW] is View.MAP
+    assert at.session_state[Keys.SELECTED_EVENT_ID] == "e_fotospacer"
+
+
+def test_own_profile_offers_edit_not_dm(ui_storage, monkeypatch):
+    monkeypatch.setitem(FEATURES, "dm_chat", True)
+    monkeypatch.setattr(chat_view, "open_dm", lambda me, other: None, raising=False)
+    at = _app(**{Keys.VIEW: View.PROFILE_VIEW, Keys.VIEWED_USER_ID: DEMO_USER_ID})
+    assert "To Twój profil" in _markdown_text(at)
+    assert not [b for b in at.button if b.key == "m3_pv_dm"]
+    at.button(key="m3_pv_edit").click()
+    _run(at)
+    assert at.session_state[Keys.VIEW] is View.PROFILE_EDIT
+
+
+def test_dm_button_on_profile_calls_m5(ui_storage, monkeypatch):
+    calls = []
+    monkeypatch.setitem(FEATURES, "dm_chat", True)
+    monkeypatch.setattr(chat_view, "open_dm", lambda me, other: calls.append((me, other)), raising=False)
+    at = _app(**{Keys.VIEW: View.PROFILE_VIEW, Keys.VIEWED_USER_ID: "u_bartek"})
+    at.button(key="m3_pv_dm").click()
+    _run(at)
+    assert calls == [(DEMO_USER_ID, "u_bartek")]
