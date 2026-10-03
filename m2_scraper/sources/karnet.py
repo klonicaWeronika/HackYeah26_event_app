@@ -12,6 +12,7 @@ Decyzja o źródle i zasady etyczne: m2_scraper/README.md.
 from __future__ import annotations
 
 import logging
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from urllib.parse import urljoin
@@ -251,6 +252,7 @@ class KarnetSource:
         self.today = today
         self.fetch_details = fetch_details
         self.max_pages = max_pages
+        self.dropped: Counter = Counter()           # powód -> liczba (raport jakości w run.py)
 
     def crawl_listing(self, today: date, horizon: date) -> list[KarnetCard]:
         """Strony listy aż do pierwszej karty startującej po horyzoncie (lista jest posortowana po starcie)."""
@@ -281,5 +283,8 @@ class KarnetSource:
                     detail = parse_detail(self.http.get_text(card.url, DETAIL_TTL_S))
                 except Exception as exc:  # noqa: BLE001 — jedna zła strona nie zatrzymuje źródła
                     log.warning("Karnet: nie udało się pobrać szczegółów %s: %s", card.url, exc)
-            events.extend(build_events(card, detail, today, horizon, self.name))
+            card_events = build_events(card, detail, today, horizon, self.name)
+            if not card_events and _place(card, detail) is None:
+                self.dropped["bez współrzędnych"] += 1
+            events.extend(card_events)
         return events

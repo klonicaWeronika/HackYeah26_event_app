@@ -4,7 +4,8 @@ Specyfikacja zadań: [TASK_SPEC.md](TASK_SPEC.md).
 
 ```bash
 python -m m2_scraper.run --source karnet --dry-run     # pobierz + zwaliduj, bez zapisu
-python -m m2_scraper.run --source all                  # wszystkie scrapery -> data/app.db
+python -m m2_scraper.run --source all                  # wszystkie scrapery -> data/app.db (+ raport jakości)
+python -m m2_scraper.run --source all --days 7         # tylko najbliższe 7 dni
 streamlit run m2_scraper/sandbox.py                    # podgląd wyniku źródła bez zapisu
 ```
 
