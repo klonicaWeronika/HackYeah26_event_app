@@ -1,0 +1,14 @@
+[project]
+name = "krk-razem"
+version = "0.1.0"
+description = "HackYeah 2026 — wspólne wyjścia na wydarzenia w Krakowie (Streamlit MVP)"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests", "m1_ui_map", "m2_scraper", "m3_profile", "m4_matching", "m5_chat"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 110

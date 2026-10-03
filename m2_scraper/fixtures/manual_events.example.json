@@ -1,0 +1,23 @@
+[
+  {
+    "title": "Koncert kameralny w Filharmonii",
+    "description": "Kwartet smyczkowy: Haydn i Szymanowski.",
+    "category": "music",
+    "tags": ["klasyka"],
+    "start": "2026-10-10T19:00:00",
+    "end": "2026-10-10T21:00:00",
+    "venue": "Filharmonia Krakowska",
+    "address": "ul. Zwierzyniecka 1, Kraków",
+    "price_pln": 45,
+    "url": "https://example.com/koncert-kameralny"
+  },
+  {
+    "title": "Sąsiedzki piknik na Bulwarach",
+    "category": "outdoor",
+    "tags": ["spacery", "street food"],
+    "start": "2026-10-11T12:00:00",
+    "end": "2026-10-11T17:00:00",
+    "venue": "Bulwar Czerwieński",
+    "price_pln": 0
+  }
+]

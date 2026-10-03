@@ -1,0 +1,13 @@
+# Runtime
+streamlit>=1.50
+pydantic>=2.6
+folium>=0.17
+streamlit-folium>=0.24
+requests>=2.31
+beautifulsoup4>=4.12
+
+# Dev / testy
+pytest>=8.0
+
+# Opcjonalnie (M2, strony renderowane JS-em):
+# playwright>=1.45      # + jednorazowo: python -m playwright install chromium
