@@ -54,6 +54,33 @@ def test_export_during_dry_run_does_not_touch_db(empty_storage: Storage, tmp_pat
     assert empty_storage.stats()["events"] == 0 and len(json.loads(out.read_text(encoding="utf-8"))) == 2
 
 
+def test_new_file_database_autoloads_snapshot_and_reset_reloads(tmp_path):
+    """Świeży klon: pusta baza plikowa = mocki + prawdziwe eventy M2, bez scrapowania i bez sieci."""
+    from shared.mock_data import build_mock_dataset
+
+    mocks = len(build_mock_dataset().events)
+    real = len(SeedSource(SEED_PATH).fetch())                        # ten sam filtr "nie zakończone"
+    store = Storage(tmp_path / "app.db")
+    try:
+        events = store.list_events()
+        assert sum(e.source == "mock" for e in events) == mocks
+        assert sum(e.source.startswith("scraper:") for e in events) == real
+        store.reset()
+        assert store.stats()["events"] == mocks + real
+        store.reset(seed=False)
+        assert store.stats()["events"] == 0
+    finally:
+        store.close()
+
+
+def test_memory_database_stays_mock_only(storage: Storage):
+    assert {e.source for e in storage.list_events()} == {"mock"}    # testy innych modułów bez zmian
+
+
+def test_seed_real_events_without_snapshot_file(empty_storage: Storage, tmp_path):
+    assert empty_storage.seed_real_events(tmp_path / "brak.json") == 0
+
+
 def test_committed_snapshot_is_valid_and_rich():
     """Plik w repo (demo offline): poprawne eventy z Krakowa, kilka kategorii, większość z tagami."""
     events = SeedSource(SEED_PATH, today=date(2000, 1, 1)).fetch()   # bez filtra dat

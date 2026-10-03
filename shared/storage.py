@@ -15,16 +15,20 @@ Architektura: "SQLite jako źródło prawdy + snapshot w RAM".
 Moduł NIE importuje streamlit — działa w scraperze, testach i REPL.
 Użycie:
     from shared.storage import get_storage
-    storage = get_storage()                    # singleton procesu (data/app.db)
-    storage = Storage(":memory:")              # izolowana baza do testów (seed z mocków)
+    storage = get_storage()                    # singleton procesu (data/app.db): mocki + prawdziwe eventy M2
+    storage = Storage(":memory:")              # izolowana baza do testów (seed TYLKO z mocków)
+
+Pusta baza plikowa (i --reset) dostaje mocki ORAZ prawdziwe wydarzenia ze snapshotu scrapera M2
+(data/seed_events.json) — zespół nie musi niczego scrapować ani mieć internetu.
 
 CLI:
     python -m shared.storage --stats
-    python -m shared.storage --reset           # wyczyść bazę i załaduj świeże mocki (daty od dziś)
+    python -m shared.storage --reset           # wyczyść bazę: świeże mocki (daty od dziś) + snapshot M2
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sqlite3
@@ -51,6 +55,7 @@ log = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB_PATH = Path(os.environ.get("EVENTAPP_DB", PROJECT_ROOT / "data" / "app.db"))
+SEED_EVENTS_PATH = PROJECT_ROOT / "data" / "seed_events.json"   # snapshot prawdziwych eventów (M2)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
@@ -118,7 +123,7 @@ class Storage:
         self._data_version = self._read_data_version()
 
         if seed_if_empty and self._is_empty():
-            self.seed_mocks()
+            self._seed_demo()
 
     # ------------------------------------------------------------------ #
     # Cache
@@ -361,14 +366,37 @@ class Storage:
         )
         self.invalidate_cache()
 
+    def seed_real_events(self, path: str | Path = SEED_EVENTS_PATH) -> int:
+        """Prawdziwe wydarzenia ze snapshotu scrapera M2 (bez sieci). Pomija zakończone. Zwraca liczbę."""
+        path = Path(path)
+        if not path.exists():
+            return 0
+        day_start = datetime.combine(datetime.now().date(), datetime.min.time())
+        events: list[Event] = []
+        for raw in json.loads(path.read_text(encoding="utf-8")):
+            try:
+                event = Event.model_validate(raw)
+            except ValidationError as exc:      # rekord niezgodny z modelem nie blokuje reszty
+                log.warning("Pomijam niepoprawny event ze snapshotu: %s", exc.errors()[:1])
+                continue
+            if event.end_or_start >= day_start:
+                events.append(event)
+        return self.upsert_events(events)
+
+    def _seed_demo(self) -> None:
+        """Mocki + (dla bazy plikowej) snapshot M2. Testy na :memory: zostają na samych mockach."""
+        self.seed_mocks()
+        if self.db_path != ":memory:":
+            self.seed_real_events()
+
     def reset(self, *, seed: bool = True) -> None:
-        """Czyści WSZYSTKIE dane (opcjonalnie ładuje mocki). Do testów i przycisku 'Reset demo'."""
+        """Czyści WSZYSTKIE dane (opcjonalnie ładuje mocki + snapshot M2). Do testów i przycisku 'Reset demo'."""
         with self._lock, self._conn:
             for table in ("messages", "attendance", "users", "events"):
                 self._conn.execute(f"DELETE FROM {table}")
         self.invalidate_cache()
         if seed:
-            self.seed_mocks()
+            self._seed_demo()
 
     def stats(self) -> dict[str, int]:
         with self._lock:

@@ -19,9 +19,13 @@ Podgląd bez dotykania `data/app.db`: `streamlit run m2_scraper/sandbox.py` → 
 
 ### Demo offline (snapshot)
 
+Nowa (pusta) baza `data/app.db` — np. na świeżym klonie przy pierwszym `streamlit run app.py` — **sama** dostaje
+mocki i prawdziwe wydarzenia z `data/seed_events.json` (`Storage.seed_real_events`). Nikt nie musi scrapować.
+Jeśli masz już starą bazę z samymi mockami:
+
 ```bash
-python -m shared.storage --reset                       # świeże mocki
-python -m m2_scraper.run --source seed                 # + prawdziwe eventy z data/seed_events.json, bez sieci
+python -m m2_scraper.run --source seed                 # dołóż prawdziwe eventy (nie kasuje użytkowników ani czatu)
+python -m shared.storage --reset                       # albo: wszystko od nowa (mocki + snapshot)
 ```
 
 Odświeżenie snapshotu (z internetem; pierwsze pobranie Karnetu ~15 min, potem cache):
