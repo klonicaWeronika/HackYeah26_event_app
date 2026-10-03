@@ -9,6 +9,8 @@ Publiczne API (kontrakt — sygnatur nie zmieniamy bez PR; wolno dodawać argume
 Pomocnicze (nowe):
     build_idf(users) -> IdfWeights
     match_breakdown(storage, user, event_id, *, weights=None) -> list[MatchBreakdown]  (sandbox, M4-03)
+    match_reason(breakdown) -> str            uzasadnienie PL ≤ 60 znaków (M4-03)
+    plural_pl(n, one, few, many) -> str       odmiana rzeczownika po liczebniku
 
 Model scoringu:
     score = Σ wᵢ·sᵢ / Σ wᵢ   (po sygnałach obecnych w danym kontekście), przycięte do [0, 1].
@@ -145,12 +147,6 @@ def weighted_score(signals: Mapping[str, float], weights: Mapping[str, float] | 
 # --------------------------------------------------------------------------- #
 
 
-def _reason(shared: list[str]) -> str:
-    if not shared:
-        return "Idziecie na to samo wydarzenie"
-    return "Oboje lubicie: " + ", ".join(shared[:3])
-
-
 @dataclass(frozen=True)
 class MatchBreakdown:
     """Dopasowanie z rozbiciem na sygnały — do sandboxa i do budowy uzasadnień (M4-03)."""
@@ -162,6 +158,7 @@ class MatchBreakdown:
     co_event_ids: tuple[str, ...]            # inne wspólne wydarzenia (oboje open_to_meet), posortowane
     event_fit_tags: tuple[str, ...]          # tagi osoby, które ma też event
     status: AttendanceStatus
+    co_past_count: int = 0                   # ile z co_event_ids już się odbyło (do uzasadnienia)
 
 
 def _shared_events(storage: Storage, user_id: str, exclude_event_id: str) -> dict[str, tuple[str, ...]]:
@@ -198,6 +195,11 @@ def match_breakdown(
     co_events = _shared_events(storage, user.id, event_id)
     event = storage.get_event(event_id)
     event_tags = set(event.tags) if event else set()
+    now = datetime.now()
+    past_ids = {
+        eid for ids in co_events.values() for eid in ids
+        if (e := storage.get_event(eid)) is not None and e.end_or_start < now
+    }
 
     results: list[MatchBreakdown] = []
     for att in attendances:
@@ -222,6 +224,7 @@ def match_breakdown(
             co_event_ids=co,
             event_fit_tags=fit_tags,
             status=att.status,
+            co_past_count=sum(1 for eid in co if eid in past_ids),
         ))
     results.sort(key=_breakdown_sort_key)
     return results
@@ -244,9 +247,88 @@ def match_for_event(
     ]
 
 
+# --------------------------------------------------------------------------- #
+# Uzasadnienia (PL, ≤ REASON_MAX_LEN znaków)
+# --------------------------------------------------------------------------- #
+#
+# Formy neutralne płciowo: nie znamy płci osób, więc zamiast „Oboje lubicie” / „Byliście razem”
+# piszemy „Wspólne: …” / „Już razem na …”. Czasownik w 2. os. l.mn. czasu teraźniejszego
+# („Idziecie”) jest neutralny.
+
+REASON_MAX_LEN = 60
+REASON_SEP = " · "
+REASON_MAX_TAGS = 3
+_ELLIPSIS = "…"
+
+
+def plural_pl(n: int, one: str, few: str, many: str) -> str:
+    """Forma rzeczownika po liczebniku: 1 wydarzenie, 2–4 wydarzenia, 5+ wydarzeń (12–14 → many)."""
+    if n == 1:
+        return one
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return few
+    return many
+
+
+def events_locative(n: int) -> str:
+    """„1 wydarzeniu”, „2 wydarzeniach” — w miejscowniku l.mn. forma nie zależy od liczby."""
+    return f"{n} {'wydarzeniu' if n == 1 else 'wydarzeniach'}"
+
+
+def _tag_list(prefix: str, tags: Iterable[str], budget: int, *, truncate: bool = True) -> str | None:
+    """`prefix` + tyle tagów (max REASON_MAX_TAGS), ile zmieści się w `budget` znakach.
+
+    Gdy nie mieści się nawet pierwszy tag: `truncate` → skracamy go wielokropkiem (zostaje
+    < 3 znaków → None), inaczej None.
+    """
+    tags = list(tags)[:REASON_MAX_TAGS]
+    if not tags:
+        return None
+    taken: list[str] = []
+    for tag in tags:
+        if len(prefix) + len(", ".join([*taken, tag])) > budget:
+            break
+        taken.append(tag)
+    if taken:
+        return prefix + ", ".join(taken)
+    if not truncate:
+        return None
+    room = budget - len(prefix) - len(_ELLIPSIS)
+    return prefix + tags[0][:room].rstrip() + _ELLIPSIS if room >= 3 else None
+
+
+def _co_attendance_phrase(b: MatchBreakdown) -> str | None:
+    if b.co_past_count:
+        return "Już razem na " + events_locative(b.co_past_count)
+    if b.co_event_ids:
+        return "Razem też na " + events_locative(len(b.co_event_ids))
+    return None
+
+
+def _status_phrase(status: AttendanceStatus) -> str:
+    if status is AttendanceStatus.INTERESTED:
+        return "Też rozważa to wydarzenie"
+    return "Idziecie na to samo wydarzenie"
+
+
 def match_reason(b: MatchBreakdown) -> str:
-    """Krótkie uzasadnienie do UI (M4-03 rozbuduje o współobecność i limit 60 znaków)."""
-    return _reason(list(b.shared_tags))
+    """Uzasadnienie do UI: wspólne tagi · współobecność; bez nich dopasowanie do eventu albo status.
+
+    Zawsze niepuste i ≤ REASON_MAX_LEN znaków, np. „Wspólne: jazz, fotografia · Już razem na 2
+    wydarzeniach”.
+    """
+    co = _co_attendance_phrase(b)
+    if b.shared_tags:
+        # współobecność ma stałą długość, więc tagom zostawiamy resztę budżetu; tagu nie ucinamy —
+        # gdy całe słowo się nie mieści, rezygnujemy ze współobecności
+        if co and (tags := _tag_list("Wspólne: ", b.shared_tags,
+                                     REASON_MAX_LEN - len(REASON_SEP) - len(co), truncate=False)):
+            return tags + REASON_SEP + co
+        return _tag_list("Wspólne: ", b.shared_tags, REASON_MAX_LEN) or _status_phrase(b.status)
+    if co:
+        return co
+    fit = _tag_list("Pasuje do wydarzenia: ", b.event_fit_tags, REASON_MAX_LEN)
+    return fit or _status_phrase(b.status)
 
 
 # --------------------------------------------------------------------------- #
@@ -268,7 +350,8 @@ def recommend_events(storage: Storage, user: User, *, limit: int = 5) -> list[Re
             continue
         score = len(shared) / max(len(event.tags), 1)
         recs.append(Recommendation(
-            event=event, score=round(score, SCORE_DECIMALS), reason="Pasuje do: " + ", ".join(shared),
+            event=event, score=round(score, SCORE_DECIMALS),
+            reason=_tag_list("Pasuje do: ", shared, REASON_MAX_LEN) or "Pasuje do Twoich zainteresowań",
         ))
     recs.sort(key=lambda r: (-r.score, r.event.start, r.event.id))
     return recs[:limit]
