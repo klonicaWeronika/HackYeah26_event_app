@@ -12,6 +12,7 @@ from streamlit.testing.v1 import AppTest
 from m5_chat import chat_view
 from shared.config import FEATURES
 from shared.mock_data import DEMO_USER_ID
+from shared.models import AttendanceStatus
 from shared.state import Keys, View
 from shared.storage import Storage
 
@@ -331,7 +332,7 @@ def test_new_person_sees_matches_after_joining_event(ui_storage):
     _fill_onboarding(at, "Ewa", ["jazz", "fotografia", "wino"])
     new_id = at.session_state[Keys.USER_ID]
     assert at.session_state[Keys.SELECTED_EVENT_ID] == event_id        # panel wydarzenia został otwarty
-    at.button(key=f"m5_join_{event_id}").click()                        # „🙋 Idę!” (M5)
+    at.segmented_control(key=f"m5_status_{new_id}_{event_id}").set_value(AttendanceStatus.GOING)  # „🙋 Idę!” (M5)
     _run(at)
     match_keys = [b.key for b in at.button if (b.key or "").startswith(f"m1_match_{event_id}_")]
     assert match_keys, "nowa osoba powinna widzieć karty pasujących osób"
@@ -545,7 +546,7 @@ def test_hide_everywhere_is_not_undone_by_open_event_panel(ui_storage):
 
     at.session_state[Keys.SELECTED_EVENT_ID] = event_id               # ponowne otwarcie wydarzenia
     _run(at)
-    assert at.toggle(key=f"m5_open_{event_id}").value is False
+    assert at.toggle(key=f"m5_open_{DEMO_USER_ID}_{event_id}").value is False
     assert not ui_storage.get_attendance(DEMO_USER_ID, event_id).open_to_meet
 
     at.button(key="m3_priv_show").click()

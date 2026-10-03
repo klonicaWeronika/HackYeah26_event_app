@@ -177,7 +177,7 @@ def _dm_buttons(at: AppTest) -> list[str]:
 
 def test_write_privately_follows_feature_flag(storage: Storage, monkeypatch):
     monkeypatch.setattr("shared.storage._default_storage", storage)
-    assert FEATURES["dm_chat"] is False
+    monkeypatch.setitem(FEATURES, "dm_chat", False)        # test nie zależy od wartości w shared/config.py
     assert _dm_buttons(AppTest.from_function(_event_chat_app, default_timeout=30).run()) == []
     monkeypatch.setitem(FEATURES, "dm_chat", True)
     assert _dm_buttons(AppTest.from_function(_event_chat_app, default_timeout=30).run())
@@ -203,6 +203,7 @@ def _cards_app():
 
 
 def test_dm_button_for_person_cards(monkeypatch):
+    monkeypatch.setitem(FEATURES, "dm_chat", False)
     at = AppTest.from_function(_cards_app, default_timeout=30).run()
     assert not at.button                                    # flaga wyłączona -> brak przycisków
     monkeypatch.setitem(FEATURES, "dm_chat", True)
