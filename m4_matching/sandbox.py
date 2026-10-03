@@ -30,6 +30,7 @@ SIGNAL_LABELS = {
     "co_attendance": "wspólne eventy",
     "event_fit": "pasuje do eventu",
     "status": "status",
+    "bio": "opis profilu (TF-IDF, 0 = flaga wył.)",
 }
 REC_SIGNAL_LABELS = {
     "tags": "pasuje tagami",

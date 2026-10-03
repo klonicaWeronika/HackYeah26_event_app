@@ -24,6 +24,7 @@ Model scoringu:
       event_fit      |tagi osoby ∩ tagi eventu| / |tagi eventu|; event bez tagów → sygnału brak
                      (nie 0), więc słabo otagowane eventy ze scrapera nie zaniżają procentów
       status         GOING = 1.0, INTERESTED = 0.5
+      bio            cosinus TF-IDF opisów profilu (bio.py), tylko gdy WEIGHTS["bio"] > 0 i oboje mają bio
     Rekomendacje (REC_WEIGHTS), potem × kara za termin i reguła max 2 eventów z kategorii:
       tags           |tagi usera ∩ tagi eventu| / |tagi eventu|; event bez tagów → sygnału brak
       social         min(Σ podobieństw widocznych uczestników ze wspólnym tagiem / 0.5, 1)
@@ -42,6 +43,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from m4_matching.bio import bio_similarities
 from shared.models import AttendanceStatus, Event, MatchResult, Recommendation, User, normalize_tag
 from shared.storage import Storage
 
@@ -55,7 +57,10 @@ WEIGHTS: dict[str, float] = {
     "event_fit": 0.10,       # zainteresowania osoby pasują do tego eventu (> 0.12 → Kuba wyprzedza
                              # Natalię na e_jazz_alchemia i psuje scenariusz demo)
     "status": 0.10,          # GOING > INTERESTED
+    "bio": 0.0,              # M4-08 (COULD), FLAGA: 0 = wyłączone i nieliczone; > 0 = TF-IDF opisów
+                             # profilu (m4_matching/bio.py); proponowane 0.10 po włączeniu
 }
+BIO_REASON_MIN = 0.10        # od tylu podobieństwa bio wspominamy o nim w uzasadnieniu
 
 CO_ATTENDANCE_SATURATION = 3                 # tyle wspólnych wydarzeń daje pełny sygnał co_attendance
 STATUS_VALUE: dict[AttendanceStatus, float] = {
@@ -203,6 +208,15 @@ def _past_event_ids(storage: Storage, co_events: Mapping[str, tuple[str, ...]]) 
     }
 
 
+def _bio_signal(
+    storage: Storage, user: User, others: Iterable[User], weights: Mapping[str, float] | None,
+) -> dict[str, float]:
+    """{id: podobieństwo bio} — pusty, gdy flaga WEIGHTS["bio"] wyłączona (wtedy nic nie liczymy)."""
+    if (WEIGHTS if weights is None else weights).get("bio", 0.0) <= 0:
+        return {}
+    return bio_similarities(user, list(others), storage.list_users())
+
+
 def _breakdown_sort_key(b: MatchBreakdown) -> tuple:
     return (-b.score, b.user.name.casefold(), b.user.id)
 
@@ -223,6 +237,7 @@ def match_breakdown(
     event = storage.get_event(event_id)
     event_tags = set(event.tags) if event else set()
     past_ids = _past_event_ids(storage, co_events)
+    bio = _bio_signal(storage, user, others.values(), weights)
 
     results: list[MatchBreakdown] = []
     for att in attendances:
@@ -239,6 +254,8 @@ def match_breakdown(
         fit_tags = tuple(t for t in other.tags if t in event_tags)
         if event_tags:
             signals["event_fit"] = len(fit_tags) / len(event_tags)
+        if other.id in bio:                          # brak bio u którejś strony → sygnału brak
+            signals["bio"] = bio[other.id]
         results.append(MatchBreakdown(
             user=other,
             score=round(weighted_score(signals, weights), SCORE_DECIMALS),
@@ -288,20 +305,23 @@ def match_users(
     idf = build_idf(storage.list_users())
     co_events = _shared_events(storage, user.id, None)
     past_ids = _past_event_ids(storage, co_events)
+    bio = _bio_signal(storage, user, others, weights)
 
     results: list[MatchResult] = []
     for other in others:
         tags_sim, shared = tag_similarity(user.tags, other.tags, idf=idf)
         co = co_events.get(other.id, ())
-        if not shared and not co:
+        if not shared and not co and bio.get(other.id, 0.0) <= 0:
             continue
         signals = {"tags": tags_sim, "co_attendance": min(len(co) / CO_ATTENDANCE_SATURATION, 1.0)}
+        if other.id in bio:
+            signals["bio"] = bio[other.id]
         co_phrase = _co_attendance_phrase(sum(1 for eid in co if eid in past_ids), len(co), also=False)
         results.append(MatchResult(
             user=other, event_id=None,
             score=round(weighted_score(signals, weights), SCORE_DECIMALS),
             shared_tags=shared,
-            reason=_tags_and(shared, co_phrase) or co_phrase or "Podobne zainteresowania",
+            reason=_tags_and(shared, co_phrase) or co_phrase or _BIO_PHRASE,
         ))
     results.sort(key=lambda m: (-m.score, m.user.name.casefold(), m.user.id))
     return results[:max(limit, 0)]
@@ -376,6 +396,9 @@ def _tags_and(shared_tags: Iterable[str], extra: str | None) -> str | None:
     return _tag_list("Wspólne: ", shared_tags, REASON_MAX_LEN)
 
 
+_BIO_PHRASE = "Podobny opis profilu"
+
+
 def _status_phrase(status: AttendanceStatus) -> str:
     if status is AttendanceStatus.INTERESTED:
         return "Też rozważa to wydarzenie"
@@ -383,7 +406,8 @@ def _status_phrase(status: AttendanceStatus) -> str:
 
 
 def match_reason(b: MatchBreakdown) -> str:
-    """Uzasadnienie do UI: wspólne tagi · współobecność; bez nich dopasowanie do eventu albo status.
+    """Uzasadnienie do UI: wspólne tagi · współobecność; bez nich podobne bio, dopasowanie do
+    eventu albo status.
 
     Zawsze niepuste i ≤ REASON_MAX_LEN znaków, np. „Wspólne: jazz, fotografia · Już razem na 2
     wydarzeniach”.
@@ -393,6 +417,8 @@ def match_reason(b: MatchBreakdown) -> str:
         return _tags_and(b.shared_tags, co) or _status_phrase(b.status)
     if co:
         return co
+    if b.signals.get("bio", 0.0) >= BIO_REASON_MIN:
+        return _BIO_PHRASE
     fit = _tag_list("Pasuje do wydarzenia: ", b.event_fit_tags, REASON_MAX_LEN)
     return fit or _status_phrase(b.status)
 

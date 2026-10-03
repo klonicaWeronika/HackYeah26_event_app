@@ -25,15 +25,30 @@ from shared.storage import Storage
 N_EVENTS = 500
 N_USERS = 200
 MAX_ATTENDEES = 25             # na event losowo 0..25 osób → średnio ~12, łącznie ~6k zapisów
-BUDGET_MS = {"match_for_event": 20.0, "recommend_events": 50.0, "match_users": 50.0}
+BUDGET_MS = {
+    "match_for_event": 20.0, "recommend_events": 50.0, "match_users": 50.0,
+    "match_for_event+bio": 20.0, "match_users+bio": 50.0,
+    "match_users+bio (zimny cache)": 50.0,           # M4-08: „brak wpływu na czas reruna > 50 ms”
+}
+
+
+BIO_FRAGMENTS = [
+    "Od niedawna w Krakowie", "szukam ludzi na koncerty", "kocham jazz i winyle", "biegam rano po Błoniach",
+    "programistka Pythona", "fotografuję miasto nocą", "chodzę do teatru co tydzień", "gram w planszówki",
+    "uczę się hiszpańskiego", "lubię dobre wino", "fan sci-fi i gier", "chodzę po górach w weekendy",
+    "studentka architektury", "techno do rana", "opera i muzyka klasyczna", "street food i kawa speciality",
+    "Erasmus student, love history", "joga i medytacja", "stand-up i kino", "startupowiec, networking",
+]
 
 
 def build_benchmark_storage(path: str | Path, *, seed: int = 42, now: datetime | None = None) -> Storage:
     rng = random.Random(seed)
+    bio_rng = random.Random(seed + 1)                    # osobny strumień: bio nie zmienia reszty danych
     now = now or datetime.now()
     store = Storage(path, seed_if_empty=False)
 
-    users = [User(id=f"u_{i:03d}", name=f"Osoba {i:03d}", tags=rng.sample(INTEREST_TAGS, rng.randint(3, 7)))
+    users = [User(id=f"u_{i:03d}", name=f"Osoba {i:03d}", tags=rng.sample(INTEREST_TAGS, rng.randint(3, 7)),
+                  bio=", ".join(bio_rng.sample(BIO_FRAGMENTS, bio_rng.randint(2, 4))) + ".")
              for i in range(N_USERS)]
     for user in users:
         store.upsert_user(user)
@@ -79,13 +94,25 @@ def worst_cases(store: Storage) -> tuple[User, str]:
 
 
 def run(store: Storage) -> dict[str, float]:
-    from m4_matching.engine import match_for_event, match_users, recommend_events
+    from m4_matching.bio import _tfidf_vectors
+    from m4_matching.engine import WEIGHTS, match_for_event, match_users, recommend_events
 
     user, event_id = worst_cases(store)
+    bio_on = {**WEIGHTS, "bio": 0.10}
+
+    def cold_bio_ms() -> float:                      # pierwsze wywołanie po zmianie bio (pusty cache)
+        _tfidf_vectors.cache_clear()
+        start = time.perf_counter()
+        match_users(store, user, weights=bio_on)
+        return (time.perf_counter() - start) * 1000
+
     return {
         "match_for_event": time_ms(lambda: match_for_event(store, user, event_id)),
         "recommend_events": time_ms(lambda: recommend_events(store, user)),
         "match_users": time_ms(lambda: match_users(store, user)),
+        "match_for_event+bio": time_ms(lambda: match_for_event(store, user, event_id, weights=bio_on)),
+        "match_users+bio": time_ms(lambda: match_users(store, user, weights=bio_on)),
+        "match_users+bio (zimny cache)": statistics.median(cold_bio_ms() for _ in range(5)),
     }
 
 
@@ -99,5 +126,5 @@ if __name__ == "__main__":
         print(f"dane: {stats['events']} eventów, {stats['users']} osób, {stats['attendance']} zapisów "
               f"({(time.perf_counter() - t0):.1f} s)")
         for name, ms in run(bench).items():
-            print(f"{name:<18} {ms:7.2f} ms   (budżet {BUDGET_MS[name]:.0f} ms)")
+            print(f"{name:<30} {ms:7.2f} ms   (budżet {BUDGET_MS[name]:.0f} ms)")
         bench.close()

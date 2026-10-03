@@ -16,7 +16,15 @@ from m4_matching.benchmark import (
     time_ms,
     worst_cases,
 )
-from m4_matching.engine import build_idf, match_for_event, match_users, recommend_events
+from m4_matching.bio import _tfidf_vectors
+from m4_matching.engine import (
+    WEIGHTS,
+    build_idf,
+    match_breakdown,
+    match_for_event,
+    match_users,
+    recommend_events,
+)
 from shared.models import User
 from shared.storage import Storage
 
@@ -64,3 +72,26 @@ def test_idf_is_cheap_enough_to_skip_caching(bench: Storage):
     """IDF liczymy raz na wywołanie (nie na parę osób). Przy 200 osobach to ~0.2 ms, więc cache
     po wersji danych nie jest potrzebny — ten test pilnuje, czy to założenie nadal obowiązuje."""
     assert time_ms(lambda: build_idf(bench.list_users())) < 2.0
+
+
+# --- M4-08: sygnał bio (TF-IDF) ------------------------------------------ #
+
+BIO_ON = {**WEIGHTS, "bio": 0.10}
+
+
+def test_bio_signal_within_budget(bench: Storage, worst: tuple[User, str]):
+    user, event_id = worst
+    assert all("bio" in b.signals for b in match_breakdown(bench, user, event_id, weights=BIO_ON))
+    assert time_ms(lambda: match_for_event(bench, user, event_id, weights=BIO_ON)) < BUDGET_MS["match_for_event"]
+    assert time_ms(lambda: match_users(bench, user, weights=BIO_ON)) < BUDGET_MS["match_users"]
+
+
+def test_bio_cold_cache_does_not_break_rerun_budget(bench: Storage, worst: tuple[User, str]):
+    """DoD M4-08: pierwsze wywołanie po zmianie bio (przeliczenie TF-IDF 200 opisów) < 50 ms."""
+    user, _ = worst
+
+    def cold() -> None:
+        _tfidf_vectors.cache_clear()
+        match_users(bench, user, weights=BIO_ON)
+
+    assert time_ms(cold) < BUDGET_MS["match_users+bio (zimny cache)"]
