@@ -13,6 +13,7 @@ import zlib
 import streamlit as st
 
 from m3_profile.avatar import AvatarError, avatar_from_upload  # re-eksport: publiczne API M3 (TASK_SPEC §3.2)
+from m3_profile.validation import BIO_MAX, NAME_MAX, TAGS_MAX, TAGS_MIN, validate_profile
 from shared import state
 from shared.config import FEATURES
 from shared.formatting import format_when
@@ -158,8 +159,75 @@ def _render_avatar_picker(user: User) -> None:
                       on_click=_on_avatar_remove, args=(user.id,))
 
 
+# --------------------------------------------------------------------------- #
+# Edycja profilu (M3-03): walidacja z komunikatami przy polach, zapis w callbacku
+# --------------------------------------------------------------------------- #
+
+_PE_ERRORS = "m3_pe_errors"           # {"user_id": str, "errors": {pole: komunikat}} po nieudanym „Zapisz”
+
+
+def _pe_key(field: str, user_id: str) -> str:
+    """Klucze pól edytora: m3_pe_name_<id>, m3_pe_bio_<id>, m3_pe_tags_<id>."""
+    return f"m3_pe_{field}_{user_id}"
+
+
+def _field_errors(user_id: str) -> dict[str, str]:
+    saved = st.session_state.get(_PE_ERRORS)
+    return saved["errors"] if saved and saved["user_id"] == user_id else {}
+
+
+def _render_profile_fields(storage: Storage, *, key_id: str, name: str, bio: str, tags: list[str]) -> None:
+    """Imię, bio i zainteresowania z komunikatem błędu pod każdym polem (do użycia w st.form)."""
+    errors = _field_errors(key_id)
+    st.text_input("Imię / nick", value=name, max_chars=NAME_MAX, key=_pe_key("name", key_id),
+                  placeholder="np. Ola")
+    if "name" in errors:
+        st.error(errors["name"], icon="⚠️")
+    st.text_area("Kilka słów o sobie (opcjonalnie)", value=bio, max_chars=BIO_MAX, key=_pe_key("bio", key_id),
+                 placeholder="np. Od miesiąca w Krakowie, szukam ekipy na koncerty i wystawy.")
+    if "bio" in errors:
+        st.error(errors["bio"], icon="⚠️")
+    options = sorted(set(INTEREST_TAGS) | set(storage.known_tags()) | set(tags))
+    st.multiselect(
+        f"Zainteresowania ({TAGS_MIN}–{TAGS_MAX})", options, default=tags, accept_new_options=True,
+        key=_pe_key("tags", key_id), placeholder="Wybierz z listy albo wpisz własne…",
+        help="Na ich podstawie dobieramy osoby i wydarzenia. Własne zainteresowanie: wpisz i naciśnij Enter.",
+    )
+    if "tags" in errors:
+        st.error(errors["tags"], icon="⚠️")
+
+
+def _validated_fields(key_id: str) -> tuple[dict, dict[str, str]]:
+    """Czyta pola formularza z session_state i waliduje; błędy odkłada do pokazania przy polach."""
+    ss = st.session_state
+    clean, errors = validate_profile(
+        ss.get(_pe_key("name", key_id), ""), ss.get(_pe_key("bio", key_id), ""), ss.get(_pe_key("tags", key_id), []),
+    )
+    if errors:
+        ss[_PE_ERRORS] = {"user_id": key_id, "errors": errors}
+    else:
+        ss.pop(_PE_ERRORS, None)
+    return clean, errors
+
+
+def _on_save_profile(storage: Storage, user_id: str) -> None:
+    """„Zapisz” (on_click): walidacja -> zapis -> toast + mapa w jednym rerunie. Błąd = zostajemy w edytorze."""
+    clean, errors = _validated_fields(user_id)
+    if errors:
+        return
+    user = storage.get_user(user_id)
+    if user is None:                                       # np. „Reset danych demo” w innej karcie
+        st.session_state[_PE_ERRORS] = {"user_id": user_id, "errors": {"name": "Ten profil już nie istnieje."}}
+        return
+    storage.upsert_user(user.copy_with(**clean, avatar_url=_pending_avatar_url(user)))
+    _discard_avatar_draft()
+    st.toast("Profil zapisany ✅")
+    state.go_to(View.MAP)
+
+
 def _leave_editor() -> None:
     _discard_avatar_draft()
+    st.session_state.pop(_PE_ERRORS, None)
     state.go_to(View.MAP)
 
 
@@ -168,24 +236,9 @@ def render_profile_editor(storage: Storage, user: User) -> None:
     st.subheader("✏️ Twój profil")
     _render_avatar_picker(user)
 
-    with st.form("m3_profile_form"):
-        name = st.text_input("Imię / nick", value=user.name, max_chars=60)
-        bio = st.text_area("Kilka słów o sobie", value=user.bio, max_chars=280)
-        options = sorted(set(INTEREST_TAGS) | set(storage.known_tags()) | set(user.tags))
-        tags = st.multiselect("Zainteresowania", options, default=user.tags, accept_new_options=True)
-        saved = st.form_submit_button("Zapisz", type="primary")
-
-    if saved:
-        if not name.strip():
-            st.error("Imię nie może być puste.")
-            return
-        storage.upsert_user(user.copy_with(
-            name=name.strip(), bio=bio.strip(), tags=tags, avatar_url=_pending_avatar_url(user),
-        ))
-        _discard_avatar_draft()
-        st.toast("Profil zapisany ✅")
-        state.go_to(View.MAP)
-        st.rerun()
+    with st.form(f"m3_pe_form_{user.id}"):
+        _render_profile_fields(storage, key_id=user.id, name=user.name, bio=user.bio, tags=user.tags)
+        st.form_submit_button("Zapisz", type="primary", on_click=_on_save_profile, args=(storage, user.id))
 
     st.button("← Wróć do mapy", key="m3_back_from_editor", on_click=_leave_editor)
 

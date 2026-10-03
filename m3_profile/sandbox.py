@@ -18,8 +18,10 @@ state.init()
 with st.sidebar:
     render_user_switcher(storage)
     # data URI zdjęcia ma dziesiątki KB — skracamy długie wartości, żeby podgląd stanu był czytelny
-    preview = {k: (r if len(r := repr(v)) <= 80 else r[:77] + "…") for k, v in sorted(st.session_state.items())}
-    st.caption(f"session_state: `{preview}`")
+    preview = ", ".join(
+        f"{k}: {r if len(r := repr(v)) <= 80 else r[:77] + '…'}" for k, v in sorted(st.session_state.items())
+    )
+    st.caption(f"session_state: `{{{preview}}}`")
 
 user = storage.get_user(state.current_user_id())
 tab_edit, tab_cards, tab_view = st.tabs(["Edycja profilu", "Karty osób", "Podgląd profilu"])
