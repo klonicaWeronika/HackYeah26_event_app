@@ -15,6 +15,8 @@ from urllib.parse import quote
 import streamlit as st
 
 from m3_profile.avatar import AvatarError, avatar_from_upload  # re-eksport: publiczne API M3 (TASK_SPEC §3.2)
+from m3_profile.personas import persona_label, persona_scenario, sort_for_switcher
+from m3_profile.privacy import set_visibility_everywhere, visibility_summary
 from m3_profile.profile_data import profile_overlap
 from m3_profile.validation import BIO_MAX, NAME_MAX, TAGS_MAX, TAGS_MIN, validate_profile
 from shared import state
@@ -90,9 +92,10 @@ def render_avatar(user: User, size: int = 40, caption: str | None = None) -> Non
 def render_user_switcher(storage: Storage, key: str = "m3_user_switch") -> None:
     """'Zaloguj jako…' (w MVP bez haseł) + „➕ Nowy profil” (onboarding, M3-04)."""
     _expire_onboarding_flag()
-    users = storage.list_users()
+    users = sort_for_switcher(storage.list_users())       # persony demo w kolejności scenariusza (M3-09)
     ids = [u.id for u in users]
     names = {u.id: u.name for u in users}
+    labels = {u.id: persona_label(u) for u in users}
     current = state.current_user_id()
 
     if ids and current not in ids:
@@ -111,7 +114,9 @@ def render_user_switcher(storage: Storage, key: str = "m3_user_switch") -> None:
         # Synchronizacja PRZED utworzeniem widgetu: użytkownik mógł się zmienić poza przełącznikiem
         # (onboarding, ?user= w URL). Bez `index=` — wartość pochodzi wyłącznie z session_state.
         st.session_state[key] = current
-        st.selectbox("Zaloguj jako", ids, format_func=names.get, key=key, on_change=_on_change)
+        st.selectbox("Zaloguj jako", ids, format_func=labels.get, key=key, on_change=_on_change)
+        if scenario := persona_scenario(current):
+            st.caption(scenario)
     st.button("➕ Nowy profil", key=f"{key}_new", on_click=_start_onboarding, width="stretch",
               help="Załóż profil dla nowej osoby (zdjęcie, imię, zainteresowania).")
 
@@ -386,7 +391,44 @@ def render_profile_editor(storage: Storage, user: User) -> None:
         _render_profile_fields(storage, key_id=user.id, name=user.name, bio=user.bio, tags=user.tags)
         st.form_submit_button("Zapisz", type="primary", on_click=_on_save_profile, args=(storage, user.id))
 
+    _render_visibility_settings(storage, user)
     st.button("← Wróć do mapy", key="m3_back_from_editor", on_click=_leave_editor)
+
+
+# --------------------------------------------------------------------------- #
+# Prywatność (M3-08, wariant „tylko M3”): zbiorczo ukryj / pokaż w dopasowaniach
+# --------------------------------------------------------------------------- #
+
+def _on_set_visibility(storage: Storage, user_id: str, visible: bool) -> None:
+    set_visibility_everywhere(storage, user_id, visible)
+    # Przełącznik M5 w prawym panelu trzyma starą wartość w stanie widgetu i przy rerunie zapisałby ją
+    # z powrotem do bazy (cofnąłby zmianę dla otwartego wydarzenia). Zamykamy panel -> widget znika,
+    # a po ponownym otwarciu wydarzenia przełącznik czyta już nową wartość z bazy.
+    if any(a.event_id == state.selected_event_id() for a in storage.list_user_attendance(user_id)):
+        state.select_event(None)
+    st.toast("👀 Znów widać Cię w dopasowaniach." if visible
+             else "🙈 Ukryto Cię we wszystkich dopasowaniach.")
+
+
+def _render_visibility_settings(storage: Storage, user: User) -> None:
+    """Działa od razu na wszystkie zapisy (M4 już pomija open_to_meet=False). Szczegóły: privacy.py."""
+    summary = visibility_summary(storage, user.id)
+    with st.container(border=True):
+        st.markdown("**🙈 Widoczność w dopasowaniach**")
+        if summary.total:
+            st.caption(f"Widać Cię w {summary.visible} z {summary.total} nadchodzących wydarzeń. "
+                       "Pojedyncze wydarzenie ustawisz przełącznikiem przy nim.")
+        else:
+            st.caption("Nie masz jeszcze zapisów na nadchodzące wydarzenia.")
+        col_hide, col_show = st.columns(2)
+        col_hide.button("🙈 Ukryj mnie wszędzie", key="m3_priv_hide", width="stretch",
+                        disabled=summary.visible == 0,
+                        on_click=_on_set_visibility, args=(storage, user.id, False))
+        col_show.button("👀 Pokaż mnie wszędzie", key="m3_priv_show", width="stretch",
+                        disabled=summary.hidden == 0,
+                        on_click=_on_set_visibility, args=(storage, user.id, True))
+        st.caption("Przy nowym „Idę!” domyślnie będzie Cię widać — "
+                   "zmienisz to przełącznikiem przy wydarzeniu.")
 
 
 # --------------------------------------------------------------------------- #

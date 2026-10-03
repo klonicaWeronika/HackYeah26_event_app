@@ -508,3 +508,51 @@ def test_dm_button_on_profile_calls_m5(ui_storage, monkeypatch):
     at.button(key="m3_pv_dm").click()
     _run(at)
     assert calls == [(DEMO_USER_ID, "u_bartek")]
+
+
+# --------------------------------------------------------------------------- #
+# M3-09: persony demo w przełączniku
+# --------------------------------------------------------------------------- #
+
+def test_switcher_shows_personas_in_demo_order_and_still_switches(ui_storage):
+    from m3_profile.personas import DEMO_PERSONAS
+
+    at = _app()
+    switch = at.selectbox(key="m3_user_switch")
+    assert switch.options[0] == f"Ola · {DEMO_PERSONAS['u_ola'].tag}"
+    assert switch.options[1].startswith("Kuba · ")
+    assert any(c.value == DEMO_PERSONAS["u_ola"].scenario for c in at.caption)   # scenariusz pod listą
+    switch.set_value("u_kuba")
+    _run(at)
+    assert at.session_state[Keys.USER_ID] == "u_kuba" and at.query_params["user"] == "u_kuba"
+    assert any(c.value == DEMO_PERSONAS["u_kuba"].scenario for c in at.caption)
+
+
+# --------------------------------------------------------------------------- #
+# M3-08: „ukryj / pokaż mnie wszędzie” w edycji profilu
+# --------------------------------------------------------------------------- #
+
+def test_hide_everywhere_is_not_undone_by_open_event_panel(ui_storage):
+    """Panel z wydarzeniem (przełącznik M5) jest otwarty obok edycji -> zmiana nie może zostać cofnięta."""
+    event_id = "e_jazz_alchemia"
+    at = _app(**{Keys.VIEW: View.PROFILE_EDIT, Keys.SELECTED_EVENT_ID: event_id})
+    at.button(key="m3_priv_hide").click()
+    _run(at)
+    assert any("Ukryto Cię" in t.value for t in at.toast)
+    _run(at)                                                           # kolejny rerun też niczego nie cofa
+    assert not any(a.open_to_meet for a in ui_storage.list_user_attendance(DEMO_USER_ID))
+    assert at.button(key="m3_priv_hide").disabled and not at.button(key="m3_priv_show").disabled
+
+    at.session_state[Keys.SELECTED_EVENT_ID] = event_id               # ponowne otwarcie wydarzenia
+    _run(at)
+    assert at.toggle(key=f"m5_open_{event_id}").value is False
+    assert not ui_storage.get_attendance(DEMO_USER_ID, event_id).open_to_meet
+
+    at.button(key="m3_priv_show").click()
+    _run(at)
+    assert all(a.open_to_meet for a in ui_storage.list_user_attendance(DEMO_USER_ID))
+
+
+def test_onboarding_has_no_visibility_section(ui_storage):
+    at = _start_onboarding(_app())
+    assert not [b for b in at.button if b.key in ("m3_priv_hide", "m3_priv_show")]
