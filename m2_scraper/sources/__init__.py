@@ -15,3 +15,6 @@ SOURCES: dict[str, type[EventSource]] = {
     "manual": ManualJsonSource,
     "karnet": KarnetSource,
 }
+
+# Prawdziwe scrapery (sieć / cache HTML) — to uruchamia `--source all`. Kolejność = priorytet przy duplikatach.
+SCRAPERS: list[str] = ["karnet"]
