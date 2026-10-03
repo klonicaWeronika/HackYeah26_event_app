@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 import pytest
 
 from m5_chat.service import (
-    MAX_MESSAGE_LEN, escape_markdown, group_messages, room_title, safe_avatar_src, send_message,
+    MAX_MESSAGE_LEN, POLL_OVERLAP, css_string, escape_markdown, group_messages, merge_messages, refresh_messages,
+    room_title, safe_avatar_src, send_message,
 )
 from shared.models import ChatMessage, dm_room_id, event_room_id
 from shared.storage import Storage
@@ -41,6 +42,14 @@ def test_escape_markdown_shows_text_literally():
     expected = "".join("\\" + ch if ch in string.punctuation else ch for ch in raw)
     assert escaped == expected
     assert escape_markdown("Michał Żak") == "Michał Żak"
+
+
+def test_css_string_cannot_break_out_of_css():
+    assert css_string("KU") == "KU"
+    assert css_string('"Ż') == r"\22 \17b "
+    escaped = css_string('x" </style>\\\n')
+    assert escaped == r"x\22 \20 \3c \2f style\3e \5c \a "
+    assert not set('"<>\n').intersection(escaped)
 
 
 @pytest.mark.parametrize("url", [
@@ -93,3 +102,50 @@ def test_group_messages_splits_on_long_pause_and_new_day():
     ]
     assert _shape(group_messages(msgs)) == [("u_kuba", 1), ("u_kuba", 2), ("u_kuba", 1)]
     assert group_messages([]) == []
+
+
+JAZZ = event_room_id("e_jazz_alchemia")
+
+
+def test_refresh_messages_loads_once_then_asks_only_for_new(storage: Storage, monkeypatch):
+    since_args = []
+    list_messages = storage.list_messages
+
+    def spy(room_id, **kwargs):
+        since_args.append(kwargs.get("since"))
+        return list_messages(room_id, **kwargs)
+
+    monkeypatch.setattr(storage, "list_messages", spy)
+    buf = refresh_messages(storage, JAZZ, [])
+    assert [m.id for m in buf] == ["msg_seed_000", "msg_seed_001", "msg_seed_002"]
+
+    new = storage.post_message(JAZZ, "u_kuba", "nowa")
+    buf2 = refresh_messages(storage, JAZZ, buf)
+    assert [m.id for m in buf2] == [*(m.id for m in buf), new.id]
+    assert since_args == [None, buf[-1].created_at - POLL_OVERLAP]
+
+
+def test_refresh_messages_without_news_returns_same_buffer(storage: Storage):
+    buf = refresh_messages(storage, JAZZ, [])
+    assert refresh_messages(storage, JAZZ, buf) is buf
+
+
+def test_refresh_messages_catches_message_committed_late(storage: Storage):
+    buf = refresh_messages(storage, JAZZ, [])
+    newest = storage.post_message(JAZZ, "u_kuba", "B")
+    buf = refresh_messages(storage, JAZZ, buf)
+    # zapis z innego wątku/procesu: starszy znacznik czasu, ale trafia do bazy dopiero teraz
+    late = storage.add_message(ChatMessage(
+        room_id=JAZZ, user_id="u_ola", text="A", created_at=newest.created_at - timedelta(seconds=2),
+    ))
+    buf = refresh_messages(storage, JAZZ, buf)
+    assert [m.id for m in buf[-2:]] == [late.id, newest.id]
+
+
+def test_merge_messages_dedupes_sorts_and_trims():
+    t = datetime(2026, 10, 3, 18, 0)
+    a, b, c = (_msg("u_kuba", t + timedelta(minutes=i)) for i in range(3))
+    assert merge_messages([a, b], [c, b], limit=2) == [b, c]
+    assert merge_messages([b], [a]) == [a, b]
+    buf = [a, b]
+    assert merge_messages(buf, [a, b]) is buf

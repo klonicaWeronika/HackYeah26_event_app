@@ -6,8 +6,12 @@ Publiczne API (kontrakt):
     room_title(storage, room_id) -> str
 Pomocnicze (bezpieczne wyświetlanie danych użytkownika, układ czatu):
     escape_markdown(text) -> str
+    css_string(text) -> str
     safe_avatar_src(url) -> str | None
     group_messages(messages, gap=GROUP_GAP) -> list[list[ChatMessage]]
+Polling przyrostowy (bufor wiadomości pokoju trzymany przez UI w session_state):
+    refresh_messages(storage, room_id, buffer) -> list[ChatMessage]
+    merge_messages(buffer, fresh) -> list[ChatMessage]
 """
 
 from __future__ import annotations
@@ -22,6 +26,10 @@ from shared.storage import Storage
 
 MAX_MESSAGE_LEN = 500
 GROUP_GAP = timedelta(minutes=5)   # dłuższa przerwa = nowy nagłówek (awatar + imię), nawet u tej samej osoby
+BUFFER_LIMIT = 300                 # tyle ostatnich wiadomości pokoju trzymamy w pamięci sesji
+# `created_at` nadaje się PRZED zapisem, więc wiadomość z innego wątku/procesu może trafić do bazy
+# chwilę po nowszej. Polling sięga więc trochę wstecz, a duplikaty odsiewa po id.
+POLL_OVERLAP = timedelta(seconds=10)
 
 # Adres zdjęcia trafia do CSS `url("...")` -> dopuszczamy tylko znaki, które nie wyjdą z cudzysłowu/reguły.
 _SAFE_HTTP_URL = re.compile(r"https?://[A-Za-z0-9\-._~:/?#\[\]@!$&*+,;=%]+")
@@ -57,6 +65,14 @@ def escape_markdown(text: str) -> str:
     return text.translate(_MD_ESCAPES)
 
 
+def css_string(text: str) -> str:
+    """Tekst do wstawienia w CSS `content: "..."`: wszystko poza ASCII [A-Za-z0-9] jako escape `\\hex `.
+
+    Cudzysłów, backslash, nowa linia ani '</style>' nie wyjdą poza napis.
+    """
+    return "".join(c if c.isascii() and c.isalnum() else f"\\{ord(c):x} " for c in text)
+
+
 def safe_avatar_src(url: str | None) -> str | None:
     """Adres zdjęcia bezpieczny do wstawienia w CSS albo None (wtedy awatar z inicjałami).
 
@@ -90,3 +106,30 @@ def group_messages(messages: Iterable[ChatMessage], *, gap: timedelta = GROUP_GA
         else:
             groups.append([msg])
     return groups
+
+
+def merge_messages(
+    buffer: list[ChatMessage], fresh: Iterable[ChatMessage], *, limit: int = BUFFER_LIMIT
+) -> list[ChatMessage]:
+    """Bufor + nowe wiadomości: bez duplikatów (po id), rosnąco po czasie, najwyżej `limit` ostatnich.
+
+    Gdy nic nowego nie przyszło, zwraca TEN SAM obiekt `buffer` (tani test „czy coś się zmieniło”).
+    """
+    known = {m.id for m in buffer}
+    new = [m for m in fresh if m.id not in known]
+    if not new:
+        return buffer
+    merged = sorted([*buffer, *new], key=lambda m: (m.created_at, m.id))
+    return merged[-limit:]
+
+
+def refresh_messages(
+    storage: Storage, room_id: str, buffer: list[ChatMessage], *, limit: int = BUFFER_LIMIT
+) -> list[ChatMessage]:
+    """Polling przyrostowy: pusty bufor -> ostatnie `limit` wiadomości pokoju;
+    w przeciwnym razie z bazy idą tylko wiadomości nowsze niż ostatnia w buforze (minus POLL_OVERLAP).
+    """
+    if not buffer:
+        return storage.list_messages(room_id, limit=limit)
+    since = buffer[-1].created_at - POLL_OVERLAP
+    return merge_messages(buffer, storage.list_messages(room_id, since=since, limit=limit), limit=limit)
