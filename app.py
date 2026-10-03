@@ -14,12 +14,14 @@ from shared.config import APP_NAME, DEFAULT_USER_ID
 from shared.state import View
 from shared.storage import get_storage
 
-st.set_page_config(page_title=APP_NAME, page_icon="📍", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title=APP_NAME, page_icon="📍",
+                   layout="wide", initial_sidebar_state="expanded")
 
 storage = get_storage()
 state.init()
 
-user = storage.get_user(state.current_user_id()) or storage.get_user(DEFAULT_USER_ID)
+user = storage.get_user(state.current_user_id()
+                        ) or storage.get_user(DEFAULT_USER_ID)
 if user is None:  # pusta baza bez mocków
     st.error("Brak użytkowników w bazie. Uruchom: python -m shared.storage --reset")
     st.stop()
@@ -51,4 +53,5 @@ with center:
             state.select_event(clicked_id)
 
 with right:
-    render_event_panel(storage, user, storage.get_event(state.selected_event_id() or ""))
+    render_event_panel(storage, user, storage.get_event(
+        state.selected_event_id() or ""))

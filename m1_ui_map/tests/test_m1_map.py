@@ -1,10 +1,13 @@
 """M1 — testy mapy (bez przeglądarki) + smoke test całej aplikacji przez streamlit AppTest."""
 
 import math
-from datetime import datetime
+from datetime import date, datetime
+from unittest.mock import patch
 
+import streamlit as st
 from streamlit.testing.v1 import AppTest
 
+from m1_ui_map.layout import _apply_date_preset
 from m1_ui_map.map_view import build_map, find_clicked_event, pin_positions
 from shared.models import Event
 from shared.storage import Storage
@@ -36,6 +39,14 @@ def test_pin_spread_is_small():
     for lat, lon in pin_positions(same).values():
         meters = math.hypot((lat - 50.05) * 111_320, (lon - 19.94) * 111_320 * math.cos(math.radians(50.05)))
         assert 10 < meters < 30
+
+
+def test_date_preset_sets_weekend_range():
+    st.session_state.pop("m1_f_dates", None)
+    with patch("m1_ui_map.layout.date") as fake_date:
+        fake_date.today.return_value = date(2026, 10, 3)  # sobota
+        _apply_date_preset("weekend")
+    assert st.session_state["m1_f_dates"] == (date(2026, 10, 3), date(2026, 10, 5))
 
 
 def test_app_smoke(tmp_path, monkeypatch):

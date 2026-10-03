@@ -15,8 +15,10 @@ from collections import defaultdict
 
 import folium
 import streamlit as st
+from folium.plugins import MarkerCluster
 from streamlit_folium import st_folium
 
+from shared import state
 from shared.formatting import format_when
 from shared.models import KRAKOW_CENTER, Event
 
@@ -63,13 +65,16 @@ def find_clicked_event(click: dict, positions: dict[str, tuple[float, float]]) -
 
 def build_map(events: list[Event], positions: dict[str, tuple[float, float]]) -> folium.Map:
     fmap = folium.Map(location=KRAKOW_CENTER, zoom_start=13, tiles="OpenStreetMap", control_scale=True)
+    marker_group = MarkerCluster(control=False) if len(events) > 80 else fmap
+
     for event in events:
         meta = event.meta
         folium.Marker(
             location=positions[event.id],
             tooltip=f"{meta.emoji} {event.title} · {format_when(event)}",
             icon=folium.Icon(color=meta.color, icon=meta.icon, prefix="fa"),
-        ).add_to(fmap)
+        ).add_to(marker_group)
+
     return fmap
 
 
@@ -77,21 +82,55 @@ def reset_map() -> None:
     """Wymusza ponowny montaż mapy (np. po zamknięciu panelu, by ten sam pin dało się kliknąć znowu)."""
     st.session_state["m1_map_nonce"] = st.session_state.get("m1_map_nonce", 0) + 1
     st.session_state.pop("m1_last_click", None)
+    st.session_state.pop("m1_active_event_id", None)
 
 
 def render_map(events: list[Event]) -> str | None:
     """Rysuje mapę. Zwraca event_id NOWO klikniętej pinezki, w innym wypadku None."""
     positions = pin_positions(events)
+    selected_event_id = state.selected_event_id() or st.session_state.get("m1_active_event_id")
+    last_click = st.session_state.get("m1_last_click")
+
+    selected_group = folium.FeatureGroup(name="Wybrany event")
+    if selected_event_id and selected_event_id in positions:
+        event = next((e for e in events if e.id == selected_event_id), None)
+        if event is not None:
+            meta = event.meta
+            folium.CircleMarker(
+                location=positions[event.id],
+                radius=18,
+                color="white",
+                weight=3,
+                fill_color=meta.color,
+                fill_opacity=1,
+                opacity=1,
+            ).add_to(selected_group)
+            folium.Marker(
+                location=positions[event.id],
+                tooltip=f"{meta.emoji} {event.title} · {format_when(event)}",
+                icon=folium.Icon(color="darkred", icon=meta.icon, prefix="fa"),
+            ).add_to(selected_group)
+
     output = st_folium(
         build_map(events, positions),
         key=f"m1_map_{st.session_state.get('m1_map_nonce', 0)}",
         height=MAP_HEIGHT,
         use_container_width=True,
         returned_objects=["last_object_clicked"],
+        feature_group_to_add=selected_group if len(selected_group._children) > 0 else None,
+        center=(
+            positions[selected_event_id]
+            if selected_event_id in positions and not (last_click and selected_event_id == find_clicked_event(last_click, positions))
+            else None
+        ),
+        zoom=13,
     )
     click = (output or {}).get("last_object_clicked")
     # st_folium zwraca OSTATNI klik przy każdym rerunie -> reagujemy tylko na nowy.
-    if not click or click == st.session_state.get("m1_last_click"):
-        return None
-    st.session_state["m1_last_click"] = click
-    return find_clicked_event(click, positions)
+    if click and click != last_click:
+        clicked_event_id = find_clicked_event(click, positions)
+        if clicked_event_id:
+            st.session_state["m1_active_event_id"] = clicked_event_id
+            st.session_state["m1_last_click"] = click
+            return clicked_event_id
+    return None
