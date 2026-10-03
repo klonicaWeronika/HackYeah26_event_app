@@ -188,7 +188,9 @@ _FREE_RE = re.compile(
     r"wstep\W{0,3}(?:jest\s+)?(?:wolny|bezplatny|darmowy)|wejscie\W{0,3}(?:wolne|bezplatne)"
     r"|bezplatn|darmow|za darmo|nieodplatn|free entry|admission free"
 )
-_PRICE_CONTEXT_RE = re.compile(r"bilet|wstep|wejsci|cen[ay]|koszt|oplat|karnet|zl\b|pln\b")
+# zdanie opisu musi mówić o biletach/wstępie ("wynagrodzenie od 3000 zł" na targach pracy to nie cena)
+_PRICE_CONTEXT_RE = re.compile(r"bilet|wstep|wejsci|cen[ay] |cennik|koszt udzial|oplat[ay] (?:za )?(?:udzial|wstep)|oplat\w* startow|wpisow")
+MAX_TICKET_PRICE = 2000.0
 
 
 def _amounts(group: str) -> list[float]:
@@ -213,6 +215,7 @@ def parse_price(text: str) -> float | None:
         tail = re.split(r"\d", folded[m.end():m.end() + 20], maxsplit=1)[0]
         normal = "normaln" in tail
         found.extend((value, normal) for value in values)
+    found = [(v, is_normal) for v, is_normal in found if v <= MAX_TICKET_PRICE]   # pakiety VIP / kwoty nagród
     if found:
         normal_prices = [v for v, is_normal in found if is_normal]
         return min(normal_prices) if normal_prices else min(v for v, _ in found)
@@ -309,7 +312,9 @@ TAG_KEYWORDS: dict[str, list[str]] = {
                  r"sredniowiecz", r"okupacj", r"rekonstrukc", r"powstani", r"wawel"],
     "literatura": [r"literat", r"literack", r"ksiazk", r"ksiazek", r"poezj", r"poet", r"pisarz", r"pisark",
                    r"(?:spotkani\w*|wieczor\w*) autorsk", r"czytan", r"reportaz", r"kryminal", r"wiersz", r"wydawc", r"powiesc", r"proza\b"],
-    "bieganie": [r"bieg(?:i|u|iem|owy|owe|acz\w*)?\b", r"maraton", r"polmaraton", r"run\b", r"running", r"piatka\b"],
+    # "maraton" sam w sobie bywa filmowy/programistyczny -> tylko półmaraton albo maraton w kontekście biegu
+    "bieganie": [r"bieg(?:i|u|iem|owy|owe|acz\w*)?\b", r"polmaraton", r"maraton\w* (?:biegow|uliczn|krakow)",
+                 r"cracovia maraton", r"run\b", r"running", r"piatka\b"],
     "rower": [r"rower", r"kolarsk", r"bike", r"cycling"],
     "joga": [r"joga", r"jogi\b", r"yoga", r"medytac", r"pilates"],
     "piłka nożna": [r"pilk[aiey] nozn", r"pilkarsk", r"ekstraklas", r"futbol", r"football"],

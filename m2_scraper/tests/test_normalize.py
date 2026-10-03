@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 import pytest
 
-from m2_scraper.normalize import extract_tags, map_category, parse_pl_datetime, parse_price, shorten
+from m2_scraper.normalize import extract_tags, find_price, map_category, parse_pl_datetime, parse_price, shorten
 from shared.models import INTEREST_TAGS, Category
 
 TODAY = date(2026, 10, 3)        # sobota
@@ -87,6 +87,18 @@ def test_parse_price(text, expected):
     assert parse_price(text) == expected
 
 
+@pytest.mark.parametrize("info, description, expected", [
+    ("", "Wynagrodzenie od 3000 zł brutto. Wstęp na targi bezpłatny.", 0.0),   # pensja != cena biletu
+    ("", "Nagrody o łącznej wartości 10 000 zł! Bilety: 45 zł.", 45.0),
+    ("", "Opłata startowa wynosi 80 zł.", 80.0),
+    ("", "Pakiet VIP 2500 zł, bilety od 199 zł", 199.0),
+    ("", "Koncert legendy rocka.", None),
+    ("60/40 zł", "Wstęp wolny dla dzieci", 60.0),                       # pole z ceną ma pierwszeństwo
+])
+def test_find_price_uses_only_ticket_sentences(info, description, expected):
+    assert find_price(info, description) == expected
+
+
 @pytest.mark.parametrize("source_type, title, expected", [
     ("Spektakle teatralne", "Wesele", Category.THEATRE),
     ("Spektakle taneczne", "Jezioro", Category.THEATRE),
@@ -124,6 +136,7 @@ def test_map_category(source_type, title, expected):
     ("Spacer z przewodnikiem po Kazimierzu", {"spacery"}),
     ("Edukacyjne wycieczki rowerowe", {"rower"}),
     ("12. PKO Cracovia Półmaraton Królewski", {"bieganie"}),
+    ("„Czaniecka Piątka” — bieg na 5 km", {"bieganie"}),
     ("Polska Noc Kabaretowa", {"stand-up"}),
     ("Spotkanie autorskie i premiera książki", {"literatura"}),
     ("Wieczór gier planszowych", {"planszówki"}),
@@ -132,11 +145,18 @@ def test_map_category(source_type, title, expected):
     ("Wiedźmin: Muzyka Kontynentu — koncert muzyki z gier wideo", {"gry wideo"}),
     ("Cracovia Music Festival", set()),                                  # 'Cracovia' to nie piłka nożna
     ("Winter Jazz", {"jazz"}),                                            # 'Winter' to nie wino
+    ("24-godzinny maraton programowania", {"technologia"}),
 ])
 def test_extract_tags_keywords(text, expected):
     assert expected <= set(extract_tags(text)), extract_tags(text)
     if not expected:
         assert extract_tags(text) == []
+
+
+def test_extract_tags_marathon_needs_running_context():
+    assert "bieganie" not in extract_tags("24-godzinny maraton programowania")   # HackYeah to nie bieg
+    assert "bieganie" not in extract_tags("Maraton filmowy: trylogia")
+    assert "bieganie" in extract_tags("Cracovia Maraton 2027")
 
 
 def test_extract_tags_type_defaults_and_canonical():

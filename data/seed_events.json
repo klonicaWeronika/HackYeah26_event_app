@@ -274,6 +274,26 @@
   "created_by": null
  },
  {
+  "id": "ev_afa038a841bb",
+  "title": "HackYeah 2026",
+  "description": "HackYeah 2026 03-04 października 2026 TAURON Arena Kraków To coś więcej niż tylko maraton kodowania — to największy stacjonarny hackathon w Europie! 24-godzinna przygoda, w której kreatywność spotyka się z adrenaliną. Przekrocz własne granice i stwórz coś przełomowego. Dołącz do nas 3-4 października 2026 w Tauron Arenie Kraków na 12. edycji HackYeah! CO NA CIEBIE CZEKA? Przez 24 godziny, Ty i Twój zespół (od 1 do 6 osób) zmierzycie się ze starannie wyselekcjonowanymi wyzwaniami, walcząc o sławę, chwałę i fantastyczne nagrody.",
+  "category": "meetup",
+  "tags": [
+   "technologia"
+  ],
+  "start": "2026-10-03T10:00:00",
+  "end": "2026-10-03T23:00:00",
+  "venue": "TAURON Arena Kraków — Arena Główna",
+  "address": "ul. Stanisława Lema 7, Kraków",
+  "lat": 50.0676,
+  "lon": 19.9917,
+  "price_pln": null,
+  "url": "https://www.tauronarenakrakow.pl/event/hackyeah-2026/",
+  "image_url": "https://www.tauronarenakrakow.pl/wp-content/uploads/2026/07/1080z1080-2-1.png",
+  "source": "scraper:tauron",
+  "created_by": null
+ },
+ {
   "id": "ev_b76009a3f3e4",
   "title": "Miś Tymoteusz",
   "description": "Tymoteusz Rymcimci autorstwa legendarnego aktora lalkarza i reżysera Jana Wilkowskiego, w adaptacji Sandry Szwarc, to prosta fabularnie, ale niesamowicie zabawna opowieść o pewnym gadatliwym misiu noszącym poważnie brzmiące imię Tymoteusz. Niedźwiadek wraz ze swoim Tatą Niedźwiedziem mieszkają w małym domku wiodąc spokojne życie pełne zwyczajnych spraw. Pewnego dnia, Tymoteusz zostaje wysłany przez Tatę do sklepu po brakujące jajko do jajecznicy. Bowiem jajecznica z pięciu jaj może udać się tylko wtedy gdy jest ich pięć, prawda? W drodze powrotnej spotyka Psa, z którym się zaprzyjaźnia.",
@@ -1151,6 +1171,26 @@
   "created_by": null
  },
  {
+  "id": "ev_50b177471b95",
+  "title": "HackYeah 2026",
+  "description": "HackYeah 2026 03-04 października 2026 TAURON Arena Kraków To coś więcej niż tylko maraton kodowania — to największy stacjonarny hackathon w Europie! 24-godzinna przygoda, w której kreatywność spotyka się z adrenaliną. Przekrocz własne granice i stwórz coś przełomowego. Dołącz do nas 3-4 października 2026 w Tauron Arenie Kraków na 12. edycji HackYeah! CO NA CIEBIE CZEKA? Przez 24 godziny, Ty i Twój zespół (od 1 do 6 osób) zmierzycie się ze starannie wyselekcjonowanymi wyzwaniami, walcząc o sławę, chwałę i fantastyczne nagrody.",
+  "category": "meetup",
+  "tags": [
+   "technologia"
+  ],
+  "start": "2026-10-04T10:00:00",
+  "end": "2026-10-04T23:00:00",
+  "venue": "TAURON Arena Kraków — Arena Główna",
+  "address": "ul. Stanisława Lema 7, Kraków",
+  "lat": 50.0676,
+  "lon": 19.9917,
+  "price_pln": null,
+  "url": "https://www.tauronarenakrakow.pl/event/hackyeah-2026_2/",
+  "image_url": "https://www.tauronarenakrakow.pl/wp-content/uploads/2026/07/1080z1080-2-1.png",
+  "source": "scraper:tauron",
+  "created_by": null
+ },
+ {
   "id": "ev_186d1e119363",
   "title": "Alicja w Krainie Czarów (Teatr Groteska)",
   "description": "W intermedialnym widowisku w reżyserii Darii Kopiec teatr spotyka się z filmem. Podczas przedstawienia nie wszystko wygląda tak, jak w zwykłym teatrze. Tu akcja toczy się na specjalnie zbudowanej makiecie, czyli w miniaturowej rzeczywistości, w której znajduje się Alicja. Ale nie patrzymy na nią własnym okiem – obserwujemy jej przygody przez obiektyw kamery pokazujący zbliżenia, detale i rzeczy, których nie dałoby się zobaczyć podczas tradycyjnego odbioru spektaklu. Na scenie obserwujemy nie tylko aktorów i lalki, ale przede wszystkim porywający proces produkcji filmu w czasie rzeczywistym.",
@@ -1508,6 +1548,26 @@
   "url": "https://karnet.krakowculture.pl/64535-krakow-nie-dokazuj-najwieksze-przeboje-marka-grechuty-i-jana-kantego-pawluskiewicza-w-kinie-kijow",
   "image_url": "http://media.krakow.travel/photos/78343/xxl.jpg",
   "source": "scraper:karnet",
+  "created_by": null
+ },
+ {
+  "id": "ev_baf13889c719",
+  "title": "Koncert inauguracyjny - sezon 2026/27",
+  "description": "Koncert · Duża Scena Opery Krakowskiej · czas trwania: 2 godziny 30 minut, 1 przerwa",
+  "category": "music",
+  "tags": [
+   "opera"
+  ],
+  "start": "2026-10-04T17:00:00",
+  "end": null,
+  "venue": "Opera Krakowska — Duża Scena",
+  "address": "ul. Lubicz 48, Kraków",
+  "lat": 50.0656,
+  "lon": 19.9572,
+  "price_pln": 220.0,
+  "url": "https://opera.krakow.pl/spektakle/koncert-inauguracyjny-sezon-2026-27",
+  "image_url": null,
+  "source": "scraper:opera",
   "created_by": null
  },
  {
@@ -2718,6 +2778,27 @@
   "created_by": null
  },
  {
+  "id": "ev_9b629e2f2114",
+  "title": "Targi Pracy i Przedsiębiorczości",
+  "description": "Targi Pracy i Przedsiębiorczości 7 października 2026 TAURON Arena Kraków Rynek pracy zmienia się dziś szybciej niż kiedykolwiek. Sztuczna inteligencja, automatyzacja i cyfrowe narzędzia wpływają na sposób, w jaki pracujemy, rozwijamy kompetencje i planujemy swoją zawodową przyszłość. Jeśli szukasz pracy, myślisz o zmianie zawodowej, chcesz zdobyć nowe umiejętności albo założyć własną firmę to 7 października 2026 r. nie może zabraknąć Cię w TAURON Arenie Kraków. Targi Pracy i Przedsiębiorczości to bezpłatne wydarzenie dla każdego, kto chce świadomie rozwijać swoją karierę.",
+  "category": "meetup",
+  "tags": [
+   "technologia",
+   "startupy"
+  ],
+  "start": "2026-10-07T09:00:00",
+  "end": "2026-10-07T14:00:00",
+  "venue": "TAURON Arena Kraków — Arena Główna",
+  "address": "ul. Stanisława Lema 7, Kraków",
+  "lat": 50.0676,
+  "lon": 19.9917,
+  "price_pln": 0.0,
+  "url": "https://www.tauronarenakrakow.pl/event/targi-pracy-i-przedsiebiorczosci-5/",
+  "image_url": "https://www.tauronarenakrakow.pl/wp-content/uploads/2026/10/pazdziernik-2026-Grafika-dla-UMK-1-i-FB-1080x1080-1.png",
+  "source": "scraper:tauron",
+  "created_by": null
+ },
+ {
   "id": "ev_ef1065bfe633",
   "title": "Lokomotywą przez świat",
   "description": "Interaktywny spektakl dla dzieci, wykorzystujący muzyczność poezji Juliana Tuwima. To multiinstrumentalna zabawa słowem i dźwiękiem. Rozpędzona lokomotywa pędzi przez świat i zabiera w podróż dzieci z różnych zakątków Europy. Stuk-puk! Stuk-puk! W każdym wagonie pełno pasażerów. Jak tu się dogadać, gdy łączy nas tylko wspólna podróż w jednym wagonie? Z pomocą przychodzi muzyka i dźwięki. Wspólne klaskanie, śpiewanie, bębnienie może zbliżyć bardziej niż błaha rozmowa. A co śpiewać najlepiej? Wiersze! A zatem zaśpiewajmy razem.",
@@ -2761,6 +2842,27 @@
   "created_by": null
  },
  {
+  "id": "ev_d6a9f1500a93",
+  "title": "Duszek w Operze",
+  "description": "Warsztaty · Scena Kameralna Opery Krakowskiej · czas trwania: 1 godzina 0 minut",
+  "category": "workshop",
+  "tags": [
+   "klasyka",
+   "opera"
+  ],
+  "start": "2026-10-07T10:00:00",
+  "end": null,
+  "venue": "Opera Krakowska — Scena Kameralna",
+  "address": "ul. Lubicz 48, Kraków",
+  "lat": 50.0656,
+  "lon": 19.9572,
+  "price_pln": null,
+  "url": "https://opera.krakow.pl/spektakle/duszek-w-operze",
+  "image_url": null,
+  "source": "scraper:opera",
+  "created_by": null
+ },
+ {
   "id": "ev_d882ca06546c",
   "title": "Kamienie na szaniec",
   "description": "Utrzymana w naturalistycznej konwencji adaptacja dzieła Aleksandra Kamińskiego Kamienie na szaniec stanowi wzruszającą opowieść o sile przyjaźni, patriotyzmie i honorze. Skoncentrowana, na autentycznych wydarzeniach spod Arsenału, narracja odsłania przed widzem trzy twarze naznaczone piętnem wojny. Młodzi przyjaciele – Alek, Zośka i Rudy, wkraczają w dorosłość z głowami pełnymi marzeń i planów.",
@@ -2800,6 +2902,27 @@
   "url": "https://karnet.krakowculture.pl/61062-krakow-alicja-w-krainie-czarow-teatr-groteska",
   "image_url": "http://media.krakow.travel/photos/75567/xxl.jpg",
   "source": "scraper:karnet",
+  "created_by": null
+ },
+ {
+  "id": "ev_b8c966e9406e",
+  "title": "Duszek w Operze",
+  "description": "Warsztaty · Scena Kameralna Opery Krakowskiej · czas trwania: 1 godzina 0 minut",
+  "category": "workshop",
+  "tags": [
+   "klasyka",
+   "opera"
+  ],
+  "start": "2026-10-07T11:30:00",
+  "end": null,
+  "venue": "Opera Krakowska — Scena Kameralna",
+  "address": "ul. Lubicz 48, Kraków",
+  "lat": 50.0656,
+  "lon": 19.9572,
+  "price_pln": null,
+  "url": "https://opera.krakow.pl/spektakle/duszek-w-operze",
+  "image_url": null,
+  "source": "scraper:opera",
   "created_by": null
  },
  {
@@ -4361,7 +4484,7 @@
   "address": "",
   "lat": 50.070307136526154,
   "lon": 19.953660964965824,
-  "price_pln": 15.0,
+  "price_pln": null,
   "url": "https://karnet.krakowculture.pl/64835-krakow-czlowiek-z-kamera-spacer-filmowy-w-10-rocznice-smierci-andrzeja-wajdy",
   "image_url": "http://media.krakow.travel/photos/78682/xxl.jpg",
   "source": "scraper:karnet",
@@ -5051,6 +5174,26 @@
   "created_by": null
  },
  {
+  "id": "ev_b5330099cb6e",
+  "title": "„Czaniecka Piątka” 2026",
+  "description": "„Czaniecka Piątka” – bieg na 5 km, który już tradycyjnie będzie towarzyszył jesiennej rywalizacji na 21,0975 km w stolicy Małopolski. 11 października uczestnicy wystartują o godz. 10:00 jednocześnie z półmaratończykami i tak jak oni zafiniszują na płycie głównej w TAURON Arenie Kraków. W zmaganiach będzie mogło wziąć udział 2500 osób, w tym młodzież powyżej 13. roku życia. Finiszuj jak półmaratończycy Dla zwolenników krótszych dystansów, osób rozpoczynających przygodę z bieganiem i młodzieży – jako wydarzenie towarzyszące 12.",
+  "category": "sport",
+  "tags": [
+   "bieganie"
+  ],
+  "start": "2026-10-11T10:00:00",
+  "end": "2026-10-11T15:00:00",
+  "venue": "TAURON Arena Kraków — Arena Główna",
+  "address": "ul. Stanisława Lema 7, Kraków",
+  "lat": 50.0676,
+  "lon": 19.9917,
+  "price_pln": 80.0,
+  "url": "https://www.tauronarenakrakow.pl/event/czaniecka-piatka-2026/",
+  "image_url": "https://www.tauronarenakrakow.pl/wp-content/uploads/2026/08/Post-1080x1080-1.png",
+  "source": "scraper:tauron",
+  "created_by": null
+ },
+ {
   "id": "ev_cc9d1608a656",
   "title": "12. Cracovia Półmaraton Królewski",
   "description": "Start 12. PKO Cracovia Półmaratonu Królewskiego zaplanowano na 11 października, godzinę 10:00. Tradycyjnie meta znajdować się będzie na płycie głównej TAURON Areny Kraków. Finisz przy owacjach kibiców w przyciemnionej scenerii największej hali widowiskowo-sportowej w Polsce to wyjątkowe doświadczenie, które zostaje w pamięci zawodników na długo. W tym roku limit zawodników został zwiększony, dzięki czemu na linii startu może stanąć 18 000 biegaczy. W 12. PKO Cracovia Półmaratonie Królewskim mogą wziąć udział osoby, które najpóźniej w dniu biegu ukończą 18 lat.",
@@ -5136,6 +5279,27 @@
   "created_by": null
  },
  {
+  "id": "ev_d0c9c3a9080c",
+  "title": "Duszek w Operze",
+  "description": "Warsztaty · Scena Kameralna Opery Krakowskiej · czas trwania: 1 godzina 0 minut",
+  "category": "workshop",
+  "tags": [
+   "klasyka",
+   "opera"
+  ],
+  "start": "2026-10-11T11:00:00",
+  "end": null,
+  "venue": "Opera Krakowska — Scena Kameralna",
+  "address": "ul. Lubicz 48, Kraków",
+  "lat": 50.0656,
+  "lon": 19.9572,
+  "price_pln": null,
+  "url": "https://opera.krakow.pl/spektakle/duszek-w-operze",
+  "image_url": null,
+  "source": "scraper:opera",
+  "created_by": null
+ },
+ {
   "id": "ev_05c30212dae8",
   "title": "Antygona",
   "description": "Trudno o bardziej pomnikową tragedię grecką niż Antygona. Zwykle traktujemy ją z pietyzmem, na jaki zasługuje arcydzieło. A gdyby tak zmienić podejście i popatrzyć na nią jako materiał do musicalu wyrażanego językiem rapu? Jeśli się nad tym zastanowić, nie jest to znowu tak szokujące. Przecież w tragedii Sofoklesa niepoślednią rolę pełnią protagonista i chór, a tekst ma bardzo zrytmizowaną formę. Reżyserem i scenarzystą musicalu w Teatrze im. J. Słowackiego jest Jakub Roszkowski, który napisanie tekstów i muzyki piosenek powierzył raperowi Jarosławowi Biszowi Jaruszewskiemu.",
@@ -5154,6 +5318,27 @@
   "url": "https://karnet.krakowculture.pl/61902-krakow-antygona",
   "image_url": "http://media.krakow.travel/photos/76312/xxl.jpg",
   "source": "scraper:karnet",
+  "created_by": null
+ },
+ {
+  "id": "ev_8096fed7f071",
+  "title": "Duszek w Operze",
+  "description": "Warsztaty · Scena Kameralna Opery Krakowskiej · czas trwania: 1 godzina 0 minut",
+  "category": "workshop",
+  "tags": [
+   "klasyka",
+   "opera"
+  ],
+  "start": "2026-10-11T12:30:00",
+  "end": null,
+  "venue": "Opera Krakowska — Scena Kameralna",
+  "address": "ul. Lubicz 48, Kraków",
+  "lat": 50.0656,
+  "lon": 19.9572,
+  "price_pln": null,
+  "url": "https://opera.krakow.pl/spektakle/duszek-w-operze",
+  "image_url": null,
+  "source": "scraper:opera",
   "created_by": null
  },
  {
@@ -6565,6 +6750,28 @@
   "created_by": null
  },
  {
+  "id": "ev_d329473f8cda",
+  "title": "SYNTHONY",
+  "description": "SYNTHONY 14.10.2026 TAURON Arena Kraków Po udanej trasie premierowej SYNTHONY wraca do Europy w 2026 roku. To wydarzenie muzyczne jak żadne inne – SYNTHONY to zapierająca dech w piersiach fuzja największych hitów muzyki elektronicznej z orkiestrą na żywo, DJ-ami, wokalistami oraz immersyjnymi wizualizacjami. Przygotuj się, Europo — SYNTHONY nadchodzi do miasta w Twojej okolicy! Poczuj energię pokolenia muzyki dance z utworami: AVICII • BOB SINCLAR • CALVIN HARRIS • DARUDE • DAVID GUETTA • ERIC PRYDZ • SWEDISH HOUSE MAFIA • FISHER • i wielu innych. Więcej informacji oraz bilety na synthony.com",
+  "category": "music",
+  "tags": [
+   "techno",
+   "klasyka",
+   "taniec"
+  ],
+  "start": "2026-10-14T19:00:00",
+  "end": "2026-10-14T22:30:00",
+  "venue": "TAURON Arena Kraków — Arena Główna",
+  "address": "ul. Stanisława Lema 7, Kraków",
+  "lat": 50.0676,
+  "lon": 19.9917,
+  "price_pln": null,
+  "url": "https://www.tauronarenakrakow.pl/event/synthony/",
+  "image_url": "https://www.tauronarenakrakow.pl/wp-content/uploads/2026/03/Krakow-syn2026-1080x1080px.png",
+  "source": "scraper:tauron",
+  "created_by": null
+ },
+ {
   "id": "ev_bee962d559bc",
   "title": "Szalone nożyczki (Teatr Bagatela)",
   "description": "Czterech podejrzanych, dwóch policjantów, narzędzie zbrodni i cała widownia świadków! Niezwykła komedia kryminalna z niespodzianką rozgrywająca się w wyjątkowym krakowskim salonie fryzjerskim, nad którym mieszka upiorna pianistka. a właściwie mieszkała… Pierwsze w Polsce interaktywne przedstawienie, w którym przebieg akcji zależy w dużej mierze od publiczności. Doskonała zabawa, a można brać w niej udział wielokrotnie!",
@@ -7655,6 +7862,26 @@
   "created_by": null
  },
  {
+  "id": "ev_20069d81985a",
+  "title": "Faust",
+  "description": "Opera · Charles Gounod · Duża Scena Opery Krakowskiej · czas trwania: 3 godziny 40 minut, 2 przerwy",
+  "category": "music",
+  "tags": [
+   "opera"
+  ],
+  "start": "2026-10-16T18:30:00",
+  "end": null,
+  "venue": "Opera Krakowska — Duża Scena",
+  "address": "ul. Lubicz 48, Kraków",
+  "lat": 50.0656,
+  "lon": 19.9572,
+  "price_pln": 100.0,
+  "url": "https://opera.krakow.pl/spektakle/faust",
+  "image_url": "https://opera.krakow.pl/media/spectacle_image/baner-1032-x-795_afb2d1231142cf2a358f61956359e0e5_detail_large.png",
+  "source": "scraper:opera",
+  "created_by": null
+ },
+ {
   "id": "ev_055282260661",
   "title": "Materia Nomada",
   "description": "Ponad pół wieku prowadził swój zakład fotograficzny w centrum Krakowa. Ekscentryk i tzw. oryginał, próbujący wyjść poza klasyczny obraz fotografii. Postać Adama Karasia, jego gorącego temperamentu i niezwykłej sztuki fotografii, przywołują twórcy „Materii Nomada” w reżyserii Aleksandry Błażejczyk. Adam Karaś był wyjątkową postacią. W historii fotografii zapisał się m.in. jako twórca pojęcia „fotoratura”. Tym terminem określał fotomontaże przygotowane z własnych negatywów, w których próbował zawrzeć swoje myśli i idee.",
@@ -8414,6 +8641,26 @@
   "created_by": null
  },
  {
+  "id": "ev_9b95644aff54",
+  "title": "Faust",
+  "description": "Opera · Charles Gounod · Duża Scena Opery Krakowskiej · czas trwania: 3 godziny 40 minut, 2 przerwy",
+  "category": "music",
+  "tags": [
+   "opera"
+  ],
+  "start": "2026-10-17T18:30:00",
+  "end": null,
+  "venue": "Opera Krakowska — Duża Scena",
+  "address": "ul. Lubicz 48, Kraków",
+  "lat": 50.0656,
+  "lon": 19.9572,
+  "price_pln": 100.0,
+  "url": "https://opera.krakow.pl/spektakle/faust",
+  "image_url": "https://opera.krakow.pl/media/spectacle_image/baner-1032-x-795_afb2d1231142cf2a358f61956359e0e5_detail_large.png",
+  "source": "scraper:opera",
+  "created_by": null
+ },
+ {
   "id": "ev_067b85e51c5b",
   "title": "Szpital Uniwersytecki, Dłonie w Teatrze Barakah",
   "description": "Przed nami wyjątkowy, akustyczny koncert, podczas którego Szpital Uniwersytecki i Dłonie zaprezentują swoje utwory w kameralnych, intymnych aranżacjach. Szpital Uniwersytecki Balansują na granicy emo rocka, midwest emo i shoegaze’u. Ich muzyka to połączenie nostalgii, przestrzennych gitar i emocjonalnych wokali. Inspiracje takimi zespołami jak Title Fight czy Sunny Day Real Estate słychać w szczerych, intensywnych utworach i energii, którą oddają na koncertach. Regularnie koncertują w całej Polsce, konsekwentnie budując swoje miejsce na alternatywnej mapie kraju.",
@@ -9160,6 +9407,26 @@
   "created_by": null
  },
  {
+  "id": "ev_a4ecf923cef1",
+  "title": "Faust",
+  "description": "Opera · Charles Gounod · Duża Scena Opery Krakowskiej · czas trwania: 3 godziny 40 minut, 2 przerwy",
+  "category": "music",
+  "tags": [
+   "opera"
+  ],
+  "start": "2026-10-18T17:00:00",
+  "end": null,
+  "venue": "Opera Krakowska — Duża Scena",
+  "address": "ul. Lubicz 48, Kraków",
+  "lat": 50.0656,
+  "lon": 19.9572,
+  "price_pln": 100.0,
+  "url": "https://opera.krakow.pl/spektakle/faust",
+  "image_url": "https://opera.krakow.pl/media/spectacle_image/baner-1032-x-795_afb2d1231142cf2a358f61956359e0e5_detail_large.png",
+  "source": "scraper:opera",
+  "created_by": null
+ },
+ {
   "id": "ev_6d8bc866ca32",
   "title": "Wieczór z burleską",
   "description": "To wyjątkowy wieczór pełen zmysłowej energii, ognistej atmosfery i najwyższej jakości rozrywki. Czeka na Was: pyszna kolacja w naszych klimatycznych wnętrzach wyłącznie dla osób dorosłych wyjątkowy show, który łączy burleskę, taniec kabaretowy, broadway jazz, sexy dance i orientalne akcenty piękne tancerki, utalentowani wokaliści i widowiskowe ledowe efekty.* Obsada: Wokal: Angelika Sobaniak Wokal: Elżbieta Kulpa Tancerka Orient: Oliwia Rolnicka Tancerka Burleska: Martyna Pinkowicz Tancerka Burleska: Agnes La Comtesse *Informacja pochodzi od organizatorów.",
@@ -9850,6 +10117,26 @@
   "created_by": null
  },
  {
+  "id": "ev_5028b685c922",
+  "title": "Faust",
+  "description": "Opera · Charles Gounod · Duża Scena Opery Krakowskiej · czas trwania: 3 godziny 40 minut, 2 przerwy",
+  "category": "music",
+  "tags": [
+   "opera"
+  ],
+  "start": "2026-10-20T18:30:00",
+  "end": null,
+  "venue": "Opera Krakowska — Duża Scena",
+  "address": "ul. Lubicz 48, Kraków",
+  "lat": 50.0656,
+  "lon": 19.9572,
+  "price_pln": 100.0,
+  "url": "https://opera.krakow.pl/spektakle/faust",
+  "image_url": "https://opera.krakow.pl/media/spectacle_image/baner-1032-x-795_afb2d1231142cf2a358f61956359e0e5_detail_large.png",
+  "source": "scraper:opera",
+  "created_by": null
+ },
+ {
   "id": "ev_129b1af74e23",
   "title": "Pacyfiści",
   "description": "W swojej najnowszej sztuce Marek Modzelewski precyzyjnie i bezlitośnie obnaża fasadowość deklarowanych przekonań. Aldona i Mariusz wpadają do Justyny i Juliana tylko na chwilę, by poinformować, że ich syn nie zjawi się na urodzinach najlepszego przyjaciela – syna gospodarzy. Z pozornie błahej wiadomości błyskawicznie roznieca się zażarty spór o wartości, który niepozorne spotkanie zamienia w prawdziwe pole bitwy. Autor sztuki zadaje pytania o to, co zostaje z wielkich haseł, gdy zderzają się z prozą codziennych decyzji.",
@@ -9868,6 +10155,27 @@
   "url": "https://karnet.krakowculture.pl/63008-krakow-pacyfisci",
   "image_url": "http://media.krakow.travel/photos/77876/xxl.jpg",
   "source": "scraper:karnet",
+  "created_by": null
+ },
+ {
+  "id": "ev_2544e8b39ab1",
+  "title": "Ricchi e Poveri",
+  "description": "Ricchi e Poveri Największe włoskie gwiazdy w Polsce! 20 października 2026 Mała Hala TAURON Areny Kraków Uprzejmie informujemy, że koncert Ricchi e Poveri został przeniesiony z Areny Głównej TAURON Areny Kraków do Małej Hali TAURON Areny Kraków. Data i godzina koncertu pozostają bez zmian, a wszystkie bilety zachowują ważność. Dziękujemy za wyrozumiałość. Z niecierpliwością czekamy na możliwość powitania Państwa na koncercie! Ricchi e Poveri – legenda włoskiej sceny pop przyjeżdża do Polski, aby zachwycić fanów niezapomnianym koncertem pełnym nostalgii, radości i energii!",
+  "category": "music",
+  "tags": [
+   "historia",
+   "pop"
+  ],
+  "start": "2026-10-20T19:00:00",
+  "end": "2026-10-20T23:00:00",
+  "venue": "TAURON Arena Kraków — Mała Hala TAURON Areny Kraków",
+  "address": "ul. Stanisława Lema 7, Kraków",
+  "lat": 50.0676,
+  "lon": 19.9917,
+  "price_pln": null,
+  "url": "https://www.tauronarenakrakow.pl/event/ricchi-e-poveri/",
+  "image_url": "https://www.tauronarenakrakow.pl/wp-content/uploads/2026/01/ReP_banner_Calendar_1080x1080.jpg",
+  "source": "scraper:tauron",
   "created_by": null
  },
  {
@@ -10160,7 +10468,7 @@
   "address": "ul. Krupnicza 38, Kraków",
   "lat": 50.0627338,
   "lon": 19.9265453,
-  "price_pln": 1000.0,
+  "price_pln": null,
   "url": "https://karnet.krakowculture.pl/63924-krakow-kinoversum-obraz-ktory-mowi-wierszem",
   "image_url": "http://media.krakow.travel/photos/77648/xxl.jpg",
   "source": "scraper:karnet",
@@ -10272,6 +10580,27 @@
   "created_by": null
  },
  {
+  "id": "ev_08d3097ff495",
+  "title": "Duszek w Operze",
+  "description": "Warsztaty · Scena Kameralna Opery Krakowskiej · czas trwania: 1 godzina 0 minut",
+  "category": "workshop",
+  "tags": [
+   "klasyka",
+   "opera"
+  ],
+  "start": "2026-10-22T09:00:00",
+  "end": null,
+  "venue": "Opera Krakowska — Scena Kameralna",
+  "address": "ul. Lubicz 48, Kraków",
+  "lat": 50.0656,
+  "lon": 19.9572,
+  "price_pln": null,
+  "url": "https://opera.krakow.pl/spektakle/duszek-w-operze",
+  "image_url": null,
+  "source": "scraper:opera",
+  "created_by": null
+ },
+ {
   "id": "ev_331d2a7a8674",
   "title": "Dziewczyna w ogniu",
   "description": "To nasycona symboliką i osadzona w konwencji realizmu magicznego opowieść o poszukiwaniu tożsamości i odkrywaniu wewnętrznej siły. Martyna, tytułowa dziewczyna w ogniu, jest wrażliwa, pełna marzeń, ale zmaga się również z lękami i niepewnością. Jej życie codzienne toczy się w zwyczajnym otoczeniu, jednak jej wewnętrzny świat przemyśleń jest bogaty i pełen symbolicznych obrazów. W dniu swoich trzynastych urodzin Martyna wyrusza w metaforyczną podróż przez las własnych myśli i emocji. Podczas tej wyprawy spotyka Wróżkę, Filantropa, Straża Pożarną oraz Awangardę Protestu.",
@@ -10311,6 +10640,27 @@
   "url": "https://karnet.krakowculture.pl/62919-krakow-chlopcy-z-placu-broni",
   "image_url": "http://media.krakow.travel/photos/67022/xxl.jpg",
   "source": "scraper:karnet",
+  "created_by": null
+ },
+ {
+  "id": "ev_533c6d0cd762",
+  "title": "Duszek w Operze",
+  "description": "Warsztaty · Scena Kameralna Opery Krakowskiej · czas trwania: 1 godzina 0 minut",
+  "category": "workshop",
+  "tags": [
+   "klasyka",
+   "opera"
+  ],
+  "start": "2026-10-22T10:30:00",
+  "end": null,
+  "venue": "Opera Krakowska — Scena Kameralna",
+  "address": "ul. Lubicz 48, Kraków",
+  "lat": 50.0656,
+  "lon": 19.9572,
+  "price_pln": null,
+  "url": "https://opera.krakow.pl/spektakle/duszek-w-operze",
+  "image_url": null,
+  "source": "scraper:opera",
   "created_by": null
  },
  {
@@ -10396,6 +10746,26 @@
   "url": "https://karnet.krakowculture.pl/63282-krakow-thunder-from-down-under-girls-night-outback-w-studio",
   "image_url": "http://media.krakow.travel/photos/76967/xxl.jpg",
   "source": "scraper:karnet",
+  "created_by": null
+ },
+ {
+  "id": "ev_304ef341f177",
+  "title": "Faust",
+  "description": "Opera · Charles Gounod · Duża Scena Opery Krakowskiej · czas trwania: 3 godziny 40 minut, 2 przerwy",
+  "category": "music",
+  "tags": [
+   "opera"
+  ],
+  "start": "2026-10-22T18:30:00",
+  "end": null,
+  "venue": "Opera Krakowska — Duża Scena",
+  "address": "ul. Lubicz 48, Kraków",
+  "lat": 50.0656,
+  "lon": 19.9572,
+  "price_pln": 100.0,
+  "url": "https://opera.krakow.pl/spektakle/faust",
+  "image_url": "https://opera.krakow.pl/media/spectacle_image/baner-1032-x-795_afb2d1231142cf2a358f61956359e0e5_detail_large.png",
+  "source": "scraper:opera",
   "created_by": null
  },
  {
@@ -10750,6 +11120,26 @@
   "url": "https://karnet.krakowculture.pl/55161-krakow-seks-po-krakosku",
   "image_url": "http://media.krakow.travel/photos/70920/xxl.jpg",
   "source": "scraper:karnet",
+  "created_by": null
+ },
+ {
+  "id": "ev_1125f92d46a8",
+  "title": "Faust",
+  "description": "Opera · Charles Gounod · Duża Scena Opery Krakowskiej · czas trwania: 3 godziny 40 minut, 2 przerwy",
+  "category": "music",
+  "tags": [
+   "opera"
+  ],
+  "start": "2026-10-23T18:30:00",
+  "end": null,
+  "venue": "Opera Krakowska — Duża Scena",
+  "address": "ul. Lubicz 48, Kraków",
+  "lat": 50.0656,
+  "lon": 19.9572,
+  "price_pln": 100.0,
+  "url": "https://opera.krakow.pl/spektakle/faust",
+  "image_url": "https://opera.krakow.pl/media/spectacle_image/baner-1032-x-795_afb2d1231142cf2a358f61956359e0e5_detail_large.png",
+  "source": "scraper:opera",
   "created_by": null
  },
  {
@@ -11451,6 +11841,26 @@
   "url": "https://karnet.krakowculture.pl/64890-krakow-katarzyna-groniec-i-melancholijni-ryzykanci-w-nck",
   "image_url": "http://media.krakow.travel/photos/78741/xxl.jpg",
   "source": "scraper:karnet",
+  "created_by": null
+ },
+ {
+  "id": "ev_6ec015bbbc77",
+  "title": "Faust",
+  "description": "Opera · Charles Gounod · Duża Scena Opery Krakowskiej · czas trwania: 3 godziny 40 minut, 2 przerwy",
+  "category": "music",
+  "tags": [
+   "opera"
+  ],
+  "start": "2026-10-24T18:30:00",
+  "end": null,
+  "venue": "Opera Krakowska — Duża Scena",
+  "address": "ul. Lubicz 48, Kraków",
+  "lat": 50.0656,
+  "lon": 19.9572,
+  "price_pln": 100.0,
+  "url": "https://opera.krakow.pl/spektakle/faust",
+  "image_url": "https://opera.krakow.pl/media/spectacle_image/baner-1032-x-795_afb2d1231142cf2a358f61956359e0e5_detail_large.png",
+  "source": "scraper:opera",
   "created_by": null
  },
  {
@@ -14151,6 +14561,24 @@
   "url": "https://karnet.krakowculture.pl/63351-krakow-chicago",
   "image_url": "http://media.krakow.travel/photos/77027/xxl.jpg",
   "source": "scraper:karnet",
+  "created_by": null
+ },
+ {
+  "id": "ev_c6f54c83ade7",
+  "title": "Mrozu",
+  "description": "Mrozu Odpowiedni moment tour! 30 października 2026 TAURON Arena Kraków Rok od swojego ostatniego biletowanego koncertu w TAURON Arenie Kraków, który był jednocześnie jego największym w karierze, Mrozu ogłasza nową trasę. Odpowiedni moment tour rozpocznie się w październiku 2026 roku i zawita do największych hal koncertowych w polskich miastach. Mrozu otwiera nowy rozdział w swojej twórczości – przygotowuje siódmą studyjną płytę, którą będzie chciał w całości zaprezentować fanom na kolejnej trasie koncertowej.",
+  "category": "music",
+  "tags": [],
+  "start": "2026-10-30T20:00:00",
+  "end": "2026-10-30T23:00:00",
+  "venue": "TAURON Arena Kraków — Arena Główna",
+  "address": "ul. Stanisława Lema 7, Kraków",
+  "lat": 50.0676,
+  "lon": 19.9917,
+  "price_pln": null,
+  "url": "https://www.tauronarenakrakow.pl/event/mrozu-2026/",
+  "image_url": "https://www.tauronarenakrakow.pl/wp-content/uploads/2025/12/Mrozu_1080x1080-2.jpg",
+  "source": "scraper:tauron",
   "created_by": null
  },
  {
