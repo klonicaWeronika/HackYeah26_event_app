@@ -4,14 +4,22 @@ M4 — silnik matchingu i rekomendacji. CZYSTA LOGIKA: zero importów streamlit.
 Zakres: m4_matching/TASK_SPEC.md
 Publiczne API (kontrakt — sygnatur nie zmieniamy bez PR; wolno dodawać argumenty opcjonalne):
     tag_similarity(a, b, *, idf=None) -> (score, shared_tags)
-    match_for_event(storage, user, event_id, *, limit=10) -> list[MatchResult]
+    match_for_event(storage, user, event_id, *, limit=10, weights=None) -> list[MatchResult]
     recommend_events(storage, user, *, limit=5) -> list[Recommendation]
 Pomocnicze (nowe):
     build_idf(users) -> IdfWeights
+    match_breakdown(storage, user, event_id, *, weights=None) -> list[MatchBreakdown]  (sandbox, M4-03)
 
 Model scoringu:
     score = Σ wᵢ·sᵢ / Σ wᵢ   (po sygnałach obecnych w danym kontekście), przycięte do [0, 1].
     Sygnały są znormalizowane do [0, 1]; wagi w WEIGHTS poniżej.
+    Sygnały dopasowania na evencie:
+      tags           Jaccard ważony IDF profili (M4-01)
+      co_attendance  min(n / 3, 1); n = inne wspólne wydarzenia (przeszłe i nadchodzące), na których
+                     OBOJE mają open_to_meet=True — ukryty zapis nie wycieka przez licznik
+      event_fit      |tagi osoby ∩ tagi eventu| / |tagi eventu|; event bez tagów → sygnału brak
+                     (nie 0), więc słabo otagowane eventy ze scrapera nie zaniżają procentów
+      status         GOING = 1.0, INTERESTED = 0.5
 
 Determinizm (ten sam stan danych → ten sam wynik i kolejność):
     * sumy liczymy przez math.fsum — wynik nie zależy od kolejności iteracji po zbiorach
@@ -22,12 +30,12 @@ Determinizm (ten sam stan danych → ten sam wynik i kolejność):
 from __future__ import annotations
 
 import math
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from shared.models import MatchResult, Recommendation, User, normalize_tag
+from shared.models import AttendanceStatus, MatchResult, Recommendation, User, normalize_tag
 from shared.storage import Storage
 
 # --------------------------------------------------------------------------- #
@@ -35,8 +43,17 @@ from shared.storage import Storage
 # --------------------------------------------------------------------------- #
 
 WEIGHTS: dict[str, float] = {
-    "tags": 0.60,            # M4-01: podobieństwo profili — Jaccard ważony IDF
-    # M4-02: "co_attendance", "event_fit", "status"
+    "tags": 0.60,            # podobieństwo profili — Jaccard ważony IDF (dominuje: plan B ze speców)
+    "co_attendance": 0.20,   # inne wspólne wydarzenia
+    "event_fit": 0.10,       # zainteresowania osoby pasują do tego eventu (> 0.12 → Kuba wyprzedza
+                             # Natalię na e_jazz_alchemia i psuje scenariusz demo)
+    "status": 0.10,          # GOING > INTERESTED
+}
+
+CO_ATTENDANCE_SATURATION = 3                 # tyle wspólnych wydarzeń daje pełny sygnał co_attendance
+STATUS_VALUE: dict[AttendanceStatus, float] = {
+    AttendanceStatus.GOING: 1.0,
+    AttendanceStatus.INTERESTED: 0.5,
 }
 
 SCORE_DECIMALS = 3          # precyzja score w MatchResult/Recommendation (i w porównaniu remisów)
@@ -134,29 +151,102 @@ def _reason(shared: list[str]) -> str:
     return "Oboje lubicie: " + ", ".join(shared[:3])
 
 
-def _match_sort_key(match: MatchResult) -> tuple:
-    return (-match.score, match.user.name.casefold(), match.user.id)
+@dataclass(frozen=True)
+class MatchBreakdown:
+    """Dopasowanie z rozbiciem na sygnały — do sandboxa i do budowy uzasadnień (M4-03)."""
+
+    user: User
+    score: float                             # zaokrąglony jak w MatchResult
+    signals: Mapping[str, float]             # sygnały w [0, 1] PRZED ważeniem (brak klucza = brak sygnału)
+    shared_tags: tuple[str, ...]             # wspólne tagi profili, od najrzadszego
+    co_event_ids: tuple[str, ...]            # inne wspólne wydarzenia (oboje open_to_meet), posortowane
+    event_fit_tags: tuple[str, ...]          # tagi osoby, które ma też event
+    status: AttendanceStatus
 
 
-def match_for_event(storage: Storage, user: User, event_id: str, *, limit: int = 10) -> list[MatchResult]:
-    """Osoby zapisane na event (bez `user`, tylko open_to_meet), od najlepiej dopasowanej."""
-    attendee_ids = [
-        a.user_id for a in storage.list_attendees(event_id)
+def _shared_events(storage: Storage, user_id: str, exclude_event_id: str) -> dict[str, tuple[str, ...]]:
+    """{inny user_id: wspólne wydarzenia} — tylko tam, gdzie OBOJE mają open_to_meet=True.
+
+    Symetryczne (A→B == B→A) i nie zdradza ukrytych zapisów żadnej ze stron.
+    """
+    shared: dict[str, list[str]] = defaultdict(list)
+    for mine in storage.list_user_attendance(user_id):
+        if mine.event_id == exclude_event_id or not mine.open_to_meet:
+            continue
+        for theirs in storage.list_attendees(mine.event_id):
+            if theirs.user_id != user_id and theirs.open_to_meet:
+                shared[theirs.user_id].append(mine.event_id)
+    return {uid: tuple(sorted(ids)) for uid, ids in shared.items()}
+
+
+def _breakdown_sort_key(b: MatchBreakdown) -> tuple:
+    return (-b.score, b.user.name.casefold(), b.user.id)
+
+
+def match_breakdown(
+    storage: Storage, user: User, event_id: str, *, weights: Mapping[str, float] | None = None
+) -> list[MatchBreakdown]:
+    """Wszystkie widoczne osoby z eventu (bez `user`, tylko open_to_meet) z rozbiciem score."""
+    attendances = [
+        a for a in storage.list_attendees(event_id)
         if a.user_id != user.id and a.open_to_meet
     ]
-    if not attendee_ids:
+    if not attendances:
         return []
-    idf = build_idf(storage.list_users())       # raz na wywołanie (~µs dla setek osób)
-    results: list[MatchResult] = []
-    for other in storage.get_users(attendee_ids).values():
+    others = storage.get_users(a.user_id for a in attendances)
+    idf = build_idf(storage.list_users())            # raz na wywołanie (~µs dla setek osób)
+    co_events = _shared_events(storage, user.id, event_id)
+    event = storage.get_event(event_id)
+    event_tags = set(event.tags) if event else set()
+
+    results: list[MatchBreakdown] = []
+    for att in attendances:
+        other = others.get(att.user_id)
+        if other is None:                            # zapis osoby usuniętej z bazy
+            continue
         tags_sim, shared = tag_similarity(user.tags, other.tags, idf=idf)
-        score = weighted_score({"tags": tags_sim})
-        results.append(MatchResult(
-            user=other, event_id=event_id, score=round(score, SCORE_DECIMALS),
-            shared_tags=shared, reason=_reason(shared),
+        co = co_events.get(other.id, ())
+        signals = {
+            "tags": tags_sim,
+            "co_attendance": min(len(co) / CO_ATTENDANCE_SATURATION, 1.0),
+            "status": STATUS_VALUE.get(att.status, 0.0),
+        }
+        fit_tags = tuple(t for t in other.tags if t in event_tags)
+        if event_tags:
+            signals["event_fit"] = len(fit_tags) / len(event_tags)
+        results.append(MatchBreakdown(
+            user=other,
+            score=round(weighted_score(signals, weights), SCORE_DECIMALS),
+            signals=signals,
+            shared_tags=tuple(shared),
+            co_event_ids=co,
+            event_fit_tags=fit_tags,
+            status=att.status,
         ))
-    results.sort(key=_match_sort_key)
-    return results[:limit]
+    results.sort(key=_breakdown_sort_key)
+    return results
+
+
+def match_for_event(
+    storage: Storage, user: User, event_id: str, *, limit: int = 10,
+    weights: Mapping[str, float] | None = None,
+) -> list[MatchResult]:
+    """Osoby zapisane na event (bez `user`, tylko open_to_meet), od najlepiej dopasowanej.
+
+    `weights` — opcjonalne nadpisanie WEIGHTS (sandbox); domyślnie WEIGHTS.
+    """
+    return [
+        MatchResult(
+            user=b.user, event_id=event_id, score=b.score,
+            shared_tags=list(b.shared_tags), reason=match_reason(b),
+        )
+        for b in match_breakdown(storage, user, event_id, weights=weights)[:limit]
+    ]
+
+
+def match_reason(b: MatchBreakdown) -> str:
+    """Krótkie uzasadnienie do UI (M4-03 rozbuduje o współobecność i limit 60 znaków)."""
+    return _reason(list(b.shared_tags))
 
 
 # --------------------------------------------------------------------------- #

@@ -16,6 +16,7 @@ import pytest
 from m4_matching.engine import (
     IdfWeights,
     build_idf,
+    match_breakdown,
     match_for_event,
     recommend_events,
     tag_similarity,
@@ -118,15 +119,18 @@ def test_profile_edit_with_shared_tags_never_lowers_match(storage: Storage, demo
 
 # --- match_for_event ----------------------------------------------------- #
 
-def test_match_scores_are_idf_jaccard(storage: Storage, demo_user: User, idf: IdfWeights):
+def test_tags_signal_is_idf_jaccard(storage: Storage, demo_user: User, idf: IdfWeights):
+    breakdown = match_breakdown(storage, demo_user, "e_jazz_alchemia")
     matches = match_for_event(storage, demo_user, "e_jazz_alchemia")
-    for m in matches:
-        expected, shared = tag_similarity(demo_user.tags, m.user.tags, idf=idf)
-        assert m.score == round(weighted_score({"tags": expected}), 3)
-        assert m.shared_tags == shared
-    ranking = [m.user.id for m in matches]
-    assert set(ranking[:2]) == {"u_bartek", "u_natalia"}       # dwa wspólne tagi > jeden
-    assert ranking.index("u_tomek") > ranking.index("u_bartek")
+    for b, m in zip(breakdown, matches, strict=True):
+        expected, shared = tag_similarity(demo_user.tags, b.user.tags, idf=idf)
+        assert b.signals["tags"] == expected
+        assert m.user.id == b.user.id and m.shared_tags == shared
+    # sam sygnał tagów: dwa wspólne tagi (Bartek, Natalia) > jeden (Kuba, Tomek)
+    tags_only = [m.user.id for m in match_for_event(storage, demo_user, "e_jazz_alchemia",
+                                                     weights={"tags": 1.0})]
+    assert set(tags_only[:2]) == {"u_bartek", "u_natalia"}
+    assert set(tags_only[2:]) == {"u_kuba", "u_tomek"}
 
 
 def test_ties_are_broken_alphabetically(empty_storage: Storage):
