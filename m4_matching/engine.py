@@ -20,7 +20,7 @@ Model scoringu:
     score = Σ wᵢ·sᵢ / Σ wᵢ   (po sygnałach obecnych w danym kontekście), przycięte do [0, 1].
     Sygnały są znormalizowane do [0, 1]; wagi w WEIGHTS poniżej.
     Sygnały dopasowania na evencie:
-      tags           Jaccard ważony IDF profili (M4-01)
+      tags           Dice ważony IDF profili (M4-01; wcześniej Jaccard — ta sama kolejność, wyższa skala)
       co_attendance  min(n / 3, 1); n = inne wspólne wydarzenia (przeszłe i nadchodzące), na których
                      OBOJE mają open_to_meet=True — ukryty zapis nie wycieka przez licznik
       event_fit      |tagi osoby ∩ tagi eventu| / |tagi eventu|; event bez tagów → sygnału brak
@@ -29,7 +29,7 @@ Model scoringu:
       bio            cosinus TF-IDF opisów profilu (bio.py), tylko gdy WEIGHTS["bio"] > 0 i oboje mają bio
     Rekomendacje (REC_WEIGHTS), potem × kara za termin i reguła max 2 eventów z kategorii:
       tags           |tagi usera ∩ tagi eventu| / |tagi eventu|; event bez tagów → sygnału brak
-      social         min(Σ podobieństw widocznych uczestników ze wspólnym tagiem / 0.5, 1)
+      social         min(Σ podobieństw widocznych uczestników ze wspólnym tagiem / 0.8, 1)
 
 Determinizm (ten sam stan danych → ten sam wynik i kolejność):
     * sumy liczymy przez math.fsum — wynik nie zależy od kolejności iteracji po zbiorach
@@ -54,9 +54,9 @@ from shared.storage import Storage
 # --------------------------------------------------------------------------- #
 
 WEIGHTS: dict[str, float] = {
-    "tags": 0.60,            # podobieństwo profili — Jaccard ważony IDF (dominuje: plan B ze speców)
+    "tags": 0.60,            # podobieństwo profili — Dice ważony IDF (dominuje: plan B ze speców)
     "co_attendance": 0.20,   # inne wspólne wydarzenia
-    "event_fit": 0.10,       # zainteresowania osoby pasują do tego eventu (> 0.12 → Kuba wyprzedza
+    "event_fit": 0.10,       # zainteresowania osoby pasują do tego eventu (≥ 0.18 → Kuba wyprzedza
                              # Natalię na e_jazz_alchemia i psuje scenariusz demo)
     "status": 0.10,          # GOING > INTERESTED
     "bio": 0.0,              # M4-08 (COULD), FLAGA: 0 = wyłączone i nieliczone; > 0 = TF-IDF opisów
@@ -77,7 +77,7 @@ REC_WEIGHTS: dict[str, float] = {
     "tags": 0.60,            # |tagi usera ∩ tagi eventu| / |tagi eventu|
     "social": 0.40,          # podobne osoby (wspólny tag) idą: min(Σ podobieństw / REC_SOCIAL_SATURATION, 1)
 }
-REC_SOCIAL_SATURATION = 0.5     # ≈ dwie mocno podobne osoby (podobieństwo IDF ~0.25) → pełny sygnał
+REC_SOCIAL_SATURATION = 0.8     # ≈ dwie mocno podobne osoby (Dice IDF ~0.4) → pełny sygnał
 REC_TIME_PENALTY = 0.30         # event za ≥ REC_TIME_HORIZON_DAYS dni traci 30% score (liniowo od dziś)
 REC_TIME_HORIZON_DAYS = 14
 REC_MAX_PER_CATEGORY = 2        # różnorodność: max tyle eventów jednej kategorii w top `limit`
@@ -125,9 +125,11 @@ def _unique_tags(tags: Iterable[str]) -> list[str]:
 def tag_similarity(
     a: list[str], b: list[str], *, idf: Callable[[str], float] | None = None
 ) -> tuple[float, list[str]]:
-    """Jaccard ważony: Σ w(A∩B) / Σ w(A∪B) + lista wspólnych tagów.
+    """Dice ważony: 2·Σ w(A∩B) / (Σ w(A) + Σ w(B)) + lista wspólnych tagów.
 
-    * `idf=None` → w(t) = 1, czyli klasyczny Jaccard |A∩B| / |A∪B| (zgodność wstecz);
+    Dice = 2J / (1 + J) dla Jaccarda J — ta sama kolejność, ale czytelniejsza skala: przy profilach
+    5 + 5 tagów dwa wspólne dają 0.40 (Jaccard 0.25), trzy 0.60 (Jaccard 0.43).
+    * `idf=None` → w(t) = 1, czyli klasyczny Dice 2|A∩B| / (|A| + |B|);
       wspólne tagi w kolejności jak w `a`.
     * `idf` podane (np. `build_idf(storage.list_users())`) → rzadkie wspólne tagi ważą więcej;
       wspólne tagi od najrzadszego (najbardziej mówiącego), remis → kolejność w `a`.
@@ -135,12 +137,12 @@ def tag_similarity(
     """
     tags_a, tags_b = _unique_tags(a), _unique_tags(b)
     set_b = set(tags_b)
-    union = set(tags_a) | set_b
-    if not union:
+    if not tags_a and not tags_b:
         return 0.0, []
     shared = [t for t in tags_a if t in set_b]
     weight = idf or (lambda _tag: 1.0)
-    score = math.fsum(weight(t) for t in shared) / math.fsum(weight(t) for t in union)
+    score = (2 * math.fsum(weight(t) for t in shared)
+             / math.fsum(weight(t) for t in (*tags_a, *tags_b)))
     if idf is not None:
         position = {t: i for i, t in enumerate(tags_a)}
         shared.sort(key=lambda t: (-weight(t), position[t]))
@@ -306,7 +308,7 @@ def match_users(
 ) -> list[MatchResult]:
     """Osoby podobne do `user` niezależnie od eventu (`event_id=None`), od najlepiej dopasowanej.
 
-    Sygnały jak w match_for_event bez kontekstu eventu: `tags` (Jaccard IDF) i `co_attendance`
+    Sygnały jak w match_for_event bez kontekstu eventu: `tags` (Dice IDF) i `co_attendance`
     (wszystkie wspólne wydarzenia, gdzie oboje są widoczni) — event_fit i status są nieobecne,
     więc wagi normalizują się po tych dwóch. Pomijamy osoby, z którymi nic nie łączy (score 0),
     i osoby ukryte we wszystkich swoich zapisach (M3-08).
