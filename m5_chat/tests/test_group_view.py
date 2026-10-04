@@ -5,9 +5,10 @@ from pathlib import Path
 import pytest
 from streamlit.testing.v1 import AppTest
 
+from m5_chat.group_view import matches_person
 from m5_chat.groups import GroupRole, InviteStatus, accept_invite, invite, member_group, role_in, vote
 from m5_chat.inbox import _news, _watch_state
-from shared.models import event_room_id, group_room_id
+from shared.models import AttendanceStatus, User, event_room_id, group_room_id
 from shared.state import View
 from shared.storage import Storage
 
@@ -192,6 +193,50 @@ def test_panel_has_group_chat_next_to_everyone_chat(app_storage):
     assert not at.exception, at.exception
     assert at.session_state["view"] == View.CHAT and at.session_state["chat_room_id"] == JAZZ_ALL
     assert at.segmented_control(key="m5_switch_e_jazz_alchemia").value == JAZZ_ALL   # „Grupa” = zaproszenie
+
+
+def test_invite_picker_search_rows_with_avatars(open_chat, storage: Storage):
+    storage.join_event("u_marta", "e_jazz_alchemia", status=AttendanceStatus.INTERESTED)
+    at = open_chat("u_kuba")
+    picker = "m5_grp_add_g_jazz"
+    rows = [m.value for m in at.markdown if 'class="m5-person"' in m.value]
+    assert len(rows) == 2 and "Tomek" in rows[0] and "Marta" in rows[1]           # najpierw „Idą”
+    assert "background:" in rows[0] and "stand-up" in rows[0]                      # awatar + zainteresowania
+    assert not [m for m in at.markdown if "m5-pop-head" in m.value]      # jedna lista, bez nagłówków
+
+    at.text_input(key=f"m5_q_{picker}").input("PILKA").run()                     # tag „piłka nożna”
+    keys = {b.key for b in at.button}
+    assert f"m5_pick_{picker}_u_tomek" in keys and f"m5_pick_{picker}_u_marta" not in keys
+    at.text_input(key=f"m5_q_{picker}").input("xyz").run()
+    assert any("Nikt nie pasuje do „xyz”" in c.value for c in at.caption)
+
+    at.text_input(key=f"m5_q_{picker}").input("mar").run()
+    at.button(key=f"m5_pick_{picker}_u_marta").click().run()
+    assert storage.get_group("g_jazz").invite_for("u_marta") is not None
+    assert at.session_state[f"m5_q_{picker}"] == ""                                # filtr wyczyszczony
+
+
+def test_matches_person_by_name_or_interest_without_diacritics():
+    zosia = User(id="u", name="Zośka Łęcka", tags=["street food"])
+    assert matches_person(zosia, "") and matches_person(zosia, "  zoska ") and matches_person(zosia, "LECK")
+    assert matches_person(zosia, "street") and not matches_person(zosia, "jazz")
+
+
+def test_match_card_label_follows_team_state(app_storage):
+    def label(at: AppTest, event_id: str, user_id: str) -> str:
+        return at.button(key=f"m1_match_{event_id}_{user_id}_group").label
+
+    at = _run_app(event_id="e_rejs_kino")
+    assert label(at, "e_rejs_kino", "u_tomek") == "➕ Dodaj do ekipy"
+    at.button(key="m1_match_e_rejs_kino_u_tomek_group").click().run()
+    assert label(at, "e_rejs_kino", "u_tomek") == "⏳ Zaproszono"
+    accept_invite(app_storage, member_group(app_storage, "e_rejs_kino", "u_ola").id, "u_tomek")
+    at.run()
+    assert label(at, "e_rejs_kino", "u_tomek") == "💬 Czat ekipy"
+    assert label(at, "e_rejs_kino", "u_kuba") == "➕ Dodaj do ekipy"
+
+    at = _run_app(event_id="e_jazz_alchemia")                            # Kuba zaprasza Olę do swojej ekipy
+    assert label(at, "e_jazz_alchemia", "u_kuba") == "✉️ Zaproszenie"
 
 
 def test_match_card_writes_in_event_context_not_dm(app_storage):

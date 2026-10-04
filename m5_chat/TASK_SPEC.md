@@ -6,7 +6,7 @@
 | **Folder** | `m5_chat/` |
 | **Priorytet modułu** | „Idę!” — CORE (zasila matching) · czat wydarzenia — OPCJONALNY w specyfikacji, ale **kluczowy na demo** · DM — OPCJONALNY |
 | **Korzysta z** | `shared/models.py` (`ChatMessage`, `Attendance`, `AttendanceStatus`, `event_room_id`, `dm_room_id`), `shared/storage.py` (`post_message`, `list_messages`, `count_messages`, `join_event`, `leave_event`, `get_attendance`) |
-| **Dostarcza dla** | M1 (widok czatu w centrum, przyciski zapisu w panelu), M3 (akcja „Napisz” na karcie osoby) |
+| **Dostarcza dla** | M1 (widok czatu w centrum, przyciski zapisu w panelu), M3 (akcje „Napisz” / „Dodaj do ekipy” na karcie osoby) |
 | **Sandbox** | `streamlit run m5_chat/sandbox.py` + dwie karty `?user=u_ola` / `?user=u_kuba` |
 | **Testy** | `pytest m5_chat` |
 
@@ -38,7 +38,7 @@ Osoby idące na to samo wydarzenie mogą się umówić: zapisują się jednym kl
 | M5-07 | Wiadomości systemowe: „Kuba dołączył do wydarzenia 🎉” przy `join_event` (`user_id="system"`, osobny styl) | SHOULD | 1 h | Dołączenie widoczne w czacie wydarzenia |
 | M5-08 | Przypięta wiadomość organizacyjna („Spotykamy się 19:45 przy wejściu”) / reakcje emoji | COULD | 1.5 h | Przypięta wiadomość widoczna nad listą |
 | M5-09 | Icebreakery: podpowiedzi pierwszej wiadomości z `MatchResult.shared_tags` (M4) | COULD | 1 h | Pusty DM pokazuje 3 klikalne propozycje |
-| M5-10 | **Grupy na wydarzenia („ekipy”)** obok czatu wszystkich uczestników (przełącznik „Grupa / Wszyscy”): „Napisz” na pasującej osobie i lista „Idą / Interesuje ich” = zaproszenie do mojej grupy; zaproszona osoba widzi skład, ale treść czatu dopiero po dołączeniu; każde kolejne zaproszenie zatwierdza cała grupa (głosowanie na czacie); 1 grupa na wydarzenie; nazwa wydarzenia i rząd awatarów nad czatem; „Opuść”; skrzynka „Ekipy” + toasty | SHOULD (mockup) | 4 h | Ola zaprasza Kubę → Kuba (druga karta) dołącza → Ola zaprasza Tomka → Kuba głosuje „Za” → Tomek dostaje zaproszenie |
+| M5-10 | **Grupy na wydarzenia („ekipy”)** obok czatu wszystkich uczestników (przełącznik „Grupa / Wszyscy”): „Dodaj do ekipy” na pasującej osobie i lista „Idą / Interesuje ich” (wyszukiwarka, awatary) = zaproszenie do mojej grupy; zaproszona osoba widzi skład, ale treść czatu dopiero po dołączeniu; każde kolejne zaproszenie zatwierdza cała grupa (głosowanie na czacie); 1 grupa na wydarzenie; nazwa wydarzenia i rząd awatarów nad czatem; „Opuść”; skrzynka „Ekipy” + toasty | SHOULD (mockup) | 4 h | Ola zaprasza Kubę → Kuba (druga karta) dołącza → Ola zaprasza Tomka → Kuba głosuje „Za” → Tomek dostaje zaproszenie |
 
 ### 2.3 Poza zakresem
 
@@ -79,7 +79,8 @@ open_dm(me_id: str, other_id: str) -> None          # callback dla „Napisz” 
 # m5_chat/groups.py (logika, bez streamlit): invite, vote, accept_invite, decline_invite, leave_group,
 #     member_group, received_invites, votes_awaiting, invite_candidates, role_in
 # m5_chat/group_view.py (UI):
-open_event_chat(me_id, other_id, event_id) -> None                    # „Napisz” na karcie pasującej osoby (M3)
+open_event_chat(me_id, other_id, event_id) -> None                    # „Dodaj do ekipy” na karcie osoby (M3)
+team_action_label(me_id, other_id, event_id) -> str                   # etykieta tego przycisku wg stanu ekipy
 render_event_chat_entry(storage, event_id, user) -> None              # panel (M1): czat grupy | czat wydarzenia
 # m5_chat/inbox.py (UI):
 render_inbox(storage, user) -> None                                   # skrzynka „Ekipy” w górnym pasku (M1)

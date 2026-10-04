@@ -209,20 +209,25 @@ def _dm_callback():
     return chat_view.open_dm if hasattr(chat_view, "open_dm") else None
 
 
-def _event_chat_callback():
-    """`open_event_chat` z M5 (czat grupy na wydarzenie) albo None, gdy M5 go nie dostarcza. Import leniwy."""
+def _team_api():
+    """Moduł grup M5 (`open_event_chat` + `team_action_label`) albo None, gdy M5 go nie dostarcza.
+
+    Import leniwy, jak w `_dm_callback`.
+    """
     try:
         from m5_chat import group_view
     except ImportError:
         return None
-    return getattr(group_view, "open_event_chat", None)
+    has_api = hasattr(group_view, "open_event_chat") and hasattr(group_view, "team_action_label")
+    return group_view if has_api else None
 
 
 def render_user_card(user: User, match: MatchResult | None = None, *, key: str) -> None:
     """Karta osoby (dopasowania w prawym panelu, listy uczestników).
 
-    „Napisz” przy dopasowaniu do wydarzenia (`match.event_id`) otwiera czat grupy na to wydarzenie
-    (zaproszenie do mojej ekipy, M5); bez kontekstu wydarzenia — prywatny czat 1:1 (DM).
+    Przy dopasowaniu do wydarzenia (`match.event_id`) „Dodaj do ekipy” zaprasza do mojej grupy na to
+    wydarzenie i otwiera jej czat (M5; etykieta wg stanu: „Czat ekipy”, „Zaproszono”, „Zaproszenie”);
+    bez kontekstu wydarzenia — „Napisz”, prywatny czat 1:1 (DM).
     `key` musi być unikalny na stronie — przyciski dostają klucze `{key}_profile`, `{key}_group` i `{key}_dm`.
     """
     with st.container(border=True):
@@ -233,17 +238,19 @@ def render_user_card(user: User, match: MatchResult | None = None, *, key: str) 
                 key=f"{key}_profile", on_click=state.go_to,
                 args=(View.PROFILE_VIEW,), kwargs={"user_id": user.id},
             )))
-        open_dm, open_event_chat = _dm_callback(), _event_chat_callback()
+        open_dm, team = _dm_callback(), _team_api()
         me = state.current_user_id()
-        if user.id != me and match is not None and match.event_id and open_event_chat is not None:
-            actions.append(("💬 Napisz", dict(
-                key=f"{key}_group", on_click=open_event_chat, args=(me, user.id, match.event_id),
-                help="Czat Twojej ekipy na to wydarzenie — zaproszenie zobaczy od razu.",
+        if user.id != me and match is not None and match.event_id and team is not None:
+            actions.append((team.team_action_label(me, user.id, match.event_id), dict(
+                key=f"{key}_group", on_click=team.open_event_chat, args=(me, user.id, match.event_id),
+                help="Twoja ekipa na to wydarzenie — otworzy się czat grupy.",
             )))
         elif user.id != me and open_dm is not None:
             actions.append(("💬 Napisz", dict(key=f"{key}_dm", on_click=open_dm, args=(me, user.id))))
         if actions:
-            for col, (label, params) in zip(st.columns(len(actions)), actions):
+            # Kolumny proporcjonalne do etykiet: „➕ Dodaj do ekipy” mieści się obok „👤 Profil” bez ucinania.
+            widths = [max(len(label), 8) for label, _ in actions]
+            for col, (label, params) in zip(st.columns(widths), actions):
                 col.button(label, width="stretch", **params)
 
 

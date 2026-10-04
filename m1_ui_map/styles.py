@@ -508,7 +508,9 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 .st-key-m1_menu_body [data-testid="stMarkdownContainer"]:has(.m1-menu-user, .m1-sep) {margin-bottom: 0;}
 
 /* M5: skrzynka „Ekipy” i lista „Idą / Interesuje ich” — pozycje jak w menu. */
-[data-testid="stPopoverBody"]:has([class*="st-key-m5_pop_"]) {min-width: 320px; max-width: 400px; padding: 0.4rem; border-radius: 16px;}
+[data-testid="stPopoverBody"]:has([class*="st-key-m5_pop_"]) {
+  width: 380px; max-width: calc(100vw - 24px); padding: 0.5rem; border-radius: 16px;
+}
 [class*="st-key-m5_pop_"] [data-testid="stBaseButton-tertiary"] {
   width: 100%; justify-content: flex-start; padding: 0.45rem 0.6rem; border-radius: 0.6rem; min-height: 0; text-align: left;
 }

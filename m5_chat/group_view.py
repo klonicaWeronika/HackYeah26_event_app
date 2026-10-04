@@ -7,8 +7,8 @@ M5 — UI grup na wydarzenia („ekipy”). Logika (zasady, głosowania): m5_cha
     │ ─────────── czat grupy (render_chat_room) ──────────────────────── │  głosowania = karty na czacie
     └────────────────────────────────────────────────────────────────────┘
 
-Wejścia do czatu grupy: „Napisz” na karcie pasującej osoby (`open_event_chat`), lista „Idą / Interesuje
-ich” i „Czat wydarzenia” w panelu wydarzenia (`render_event_chat_entry`) i skrzynka „Ekipy” (inbox.py).
+Wejścia do czatu grupy: „Dodaj do ekipy” na karcie pasującej osoby (`open_event_chat`), lista „Idą /
+Interesuje ich” z wyszukiwarką i „Czat wydarzenia” w panelu (`render_event_chat_entry`) i „Ekipy” (inbox.py).
 Zaproszona osoba widzi nagłówek i skład grupy, ale treść czatu dopiero po dołączeniu.
 Akcje zmieniające skład (dołącz, odrzuć, opuść, zaproś) są POZA fragmentem czatu -> pełny rerun odświeża
 też panel wydarzenia. Głosy oddaje się w fragmencie; zmianę składu fragment wykrywa i robi pełny rerun.
@@ -29,7 +29,7 @@ from m5_chat.service import escape_markdown, room_title
 from shared import state
 from shared.formatting import format_time, format_when
 from shared.models import (
-    AttendanceStatus, ChatMessage, EventGroup, MessageKind, User, event_room_id, group_room_id,
+    ChatMessage, EventGroup, MessageKind, User, event_room_id, fold_text, group_room_id,
 )
 from shared.state import View
 from shared.storage import Storage, get_storage
@@ -61,9 +61,36 @@ GROUP_CSS = """
   border: 1px dashed rgba(128, 128, 128, 0.4);}
 .m5-locked div {font-size: 2rem;}
 [class*="st-key-m5_vote_"] {margin: 2px 0 14px;}
+/* Lista osób: przewija się TYLKO ona. Okienko popovera dostaje od Streamlita max-height zależny od miejsca
+   na ekranie i własny overflow:auto -> drugi suwak. Okienko bez przewijania, a lista kurczy się (flex). */
+[data-testid="stPopoverBody"]:has([class*="st-key-m5_list_"]) {overflow: hidden; display: flex;
+  flex-direction: column;}
+[data-testid="stPopoverBody"]
+  :is([data-testid="stVerticalBlock"], [data-testid="stLayoutWrapper"]):has([class*="st-key-m5_list_"]) {
+  min-height: 0; flex: 0 1 auto; display: flex; flex-direction: column;
+}
+[data-testid="stLayoutWrapper"]:has(> [class*="st-key-m5_list_"]) {max-height: 340px;}
+[class*="st-key-m5_list_"] {flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin;}
+[class*="st-key-m5_row_"] {position: relative;}
+[class*="st-key-m5_row_"] [data-testid="stMarkdownContainer"] {margin-bottom: 0;}  /* Streamlit: -1rem */
+[class*="st-key-m5_row_"] [data-testid="stElementContainer"]:has(button) {
+  position: absolute !important; inset: 0; z-index: 2; width: 100% !important; height: 100%;
+}
+[class*="st-key-m5_row_"] [data-testid="stElementContainer"]:has(button) > div,
+[class*="st-key-m5_row_"] [data-testid="stButton"] {width: 100%; height: 100%;}
+[class*="st-key-m5_row_"] button {width: 100%; height: 100%; min-height: 0; opacity: 0; cursor: pointer;}
+.m5-person {display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px;
+  transition: background .15s ease;}
+[class*="st-key-m5_row_"]:hover .m5-person {background: rgba(128, 128, 128, 0.12);}
+.m5-person-text {flex: 1; min-width: 0; line-height: 1.25;}
+.m5-person-text b, .m5-person-text small {display: block; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;}
+.m5-person-text small {opacity: 0.65; font-size: 0.74rem;}
+.m5-person-add {font-size: 1.15rem; font-weight: 700; opacity: 0.45;}
+[class*="st-key-m5_row_"]:hover .m5-person-add {opacity: 1; color: #E4572E;}
 """
 
-_STATUS_HEADERS = {AttendanceStatus.GOING: "Idą", AttendanceStatus.INTERESTED: "Interesuje ich"}
+PICKER_LIMIT = 30          # tyle osób rysujemy w liście naraz — resztę odsłania wyszukiwarka
 
 
 def inject_group_css() -> None:
@@ -112,7 +139,7 @@ def _invite_and_open(storage: Storage, event_id: str, me_id: str, other_id: str)
 
 
 def open_event_chat(me_id: str, other_id: str, event_id: str, storage: Storage | None = None) -> None:
-    """Callback „Napisz” na karcie pasującej osoby (M3): czat w kontekście wydarzenia, nie DM.
+    """Callback „Dodaj do ekipy” na karcie pasującej osoby (M3): czat w kontekście wydarzenia, nie DM.
 
     Bez grupy, gdy ta osoba zaprasza mnie do swojej -> pokazuje jej zaproszenie. W przeciwnym razie
     zaprasza ją do mojej grupy (zakłada ją; w większej grupie startuje głosowanie) i otwiera czat grupy.
@@ -128,8 +155,26 @@ def open_event_chat(me_id: str, other_id: str, event_id: str, storage: Storage |
     _invite_and_open(storage, event_id, me_id, other_id)
 
 
-def _on_invite(storage: Storage, event_id: str, me_id: str, other_id: str, popover_key: str) -> None:
+def team_action_label(me_id: str, other_id: str, event_id: str, storage: Storage | None = None) -> str:
+    """Etykieta przycisku na karcie pasującej osoby (M3) — co zrobi `open_event_chat` dla tej osoby."""
+    storage = storage or get_storage()
+    group = member_group(storage, event_id, me_id)
+    if group is None:
+        if any(other_id in g.members for g, _ in received_invites(storage, me_id, event_id=event_id)):
+            return "✉️ Zaproszenie"                     # ta osoba zaprasza mnie do swojej ekipy
+        return "➕ Dodaj do ekipy"
+    if other_id in group.members:
+        return "💬 Czat ekipy"
+    if group.invite_for(other_id) is not None:
+        return "⏳ Zaproszono"
+    return "➕ Dodaj do ekipy"
+
+
+def _on_invite(
+    storage: Storage, event_id: str, me_id: str, other_id: str, popover_key: str, query_key: str,
+) -> None:
     st.session_state[popover_key] = False
+    st.session_state[query_key] = ""                    # następne otwarcie listy bez starego filtra
     _invite_and_open(storage, event_id, me_id, other_id)
 
 
@@ -158,33 +203,61 @@ def _on_vote(storage: Storage, group_id: str, invite_id: str, voter_id: str, app
 # Lista „Idą + Interesuje mnie” (ten sam dropdown w panelu wydarzenia i nad czatem grupy)
 # --------------------------------------------------------------------------- #
 
+def matches_person(person: User, query: str) -> bool:
+    """Wyszukiwarka osób: imię albo zainteresowanie, bez wielkości liter i polskich znaków."""
+    needle = fold_text(query.strip())
+    return not needle or needle in fold_text(f"{person.name} {' '.join(person.tags)}")
+
+
+def _person_row_html(person: User) -> str:
+    tags = " · ".join(person.tags[:3])
+    small = f"<small>{html.escape(tags)}</small>" if tags else ""
+    return (
+        f'<div class="m5-person">{avatar_html(person, 32)}'
+        f'<div class="m5-person-text"><b>{html.escape(person.name)}</b>{small}</div>'
+        '<span class="m5-person-add">+</span></div>'
+    )
+
+
 def render_invite_popover(
     storage: Storage, event_id: str, user: User, group: EventGroup | None, *, label: str, key: str,
     width: str | int = "content",
 ) -> None:
+    """Lista „Idą + Interesuje mnie” jednym ciągiem (najpierw idący) z wyszukiwarką; wiersz = awatar, imię,
+    zainteresowania (cały klikalny)."""
+    query_key = f"m5_q_{key}"
     with (
         st.popover(label, icon=":material/person_add:", key=key, on_change="rerun", width=width),
         st.container(key=f"m5_pop_{key}", gap=None),
     ):
-        people = invite_candidates(storage, event_id, user.id, group)
+        everyone = invite_candidates(storage, event_id, user.id, group)
         if group is not None and len(group.members) > 1:
             st.caption("Każdą nową osobę zatwierdza cała grupa — głosowanie pojawi się na czacie.")
-        elif people:
+        elif everyone:
             st.caption("Zaproszona osoba zobaczy czat Waszej grupy i zdecyduje, czy dołącza.")
-        if not people:
+        if not everyone:
             st.caption("Nikogo więcej tu nie ma. Gdy ktoś kliknie „Idę!” albo „Interesuje mnie”, "
                        "pojawi się na tej liście.")
-        for status, header in _STATUS_HEADERS.items():
-            subset = [person for person, s in people if s is status]
-            if subset:
-                popover_heading(header)
-            for person in subset:
-                # Prefiks inny niż klucz popovera: style M1 `[class*="st-key-m5_grp_new_"]` omijają listę.
-                st.button(
-                    escape_markdown(person.name), key=f"m5_pick_{key}_{person.id}",
-                    icon=":material/person_add:", type="tertiary",
-                    on_click=_on_invite, args=(storage, event_id, user.id, person.id, key),
-                )
+            return
+        query = st.text_input(
+            "Szukaj osoby", key=query_key, placeholder="Szukaj: imię albo zainteresowanie",
+            icon=":material/search:", label_visibility="collapsed",
+        )
+        people = [person for person, _ in everyone if matches_person(person, query or "")]
+        if not people:
+            st.caption(f"Nikt nie pasuje do „{escape_markdown(query.strip())}”.")
+        with st.container(key=f"m5_list_{key}", gap=None):
+            for person in people[:PICKER_LIMIT]:
+                # Prefiksy inne niż klucz popovera: style M1 dla `m5_grp_new_*` omijają listę.
+                with st.container(key=f"m5_row_{key}_{person.id}", gap=None):
+                    st.markdown(_person_row_html(person), unsafe_allow_html=True)
+                    st.button(
+                        escape_markdown(person.name), key=f"m5_pick_{key}_{person.id}",
+                        help=f"Dodaj do ekipy: {escape_markdown(person.name)}", on_click=_on_invite,
+                        args=(storage, event_id, user.id, person.id, key, query_key),
+                    )
+        if len(people) > PICKER_LIMIT:
+            st.caption(f"…i jeszcze {_people(len(people) - PICKER_LIMIT)} — zawęź wyszukiwanie.")
 
 
 # --------------------------------------------------------------------------- #

@@ -1,7 +1,7 @@
 """
 M5 — grupy na wydarzenia („ekipy”): logika bez streamlit (testowalna pytestem).
 
-Skąd się biorą: „Napisz” na karcie pasującej osoby albo lista „Idą / Zainteresowani” przy wydarzeniu
+Skąd się biorą: „Dodaj do ekipy” na karcie pasującej osoby albo lista „Idą / Interesuje ich” przy wydarzeniu
 -> zaproszenie do MOJEJ grupy na to wydarzenie (grupa powstaje przy pierwszym zaproszeniu).
 Czat otwierany z profilu to dalej zwykły DM (`dm_room_id`) — bez kontekstu wydarzenia.
 

@@ -182,7 +182,7 @@ sequenceDiagram
 
 | Zasada | Gdzie |
 |---|---|
-| Czat z profilu = zwykły DM. „Napisz” na karcie **pasującej osoby** i lista **Idą / Interesuje ich** w panelu wydarzenia = zaproszenie do *mojej* grupy na to wydarzenie (powstaje przy pierwszym zaproszeniu) | `m5_chat/group_view.py` |
+| Czat z profilu = zwykły DM („Napisz”). „Dodaj do ekipy” na karcie **pasującej osoby** (etykieta wg stanu: „Czat ekipy”, „Zaproszono”, „Zaproszenie”) i lista **Idą / Interesuje ich** z wyszukiwarką (imię / zainteresowanie) i awatarami = zaproszenie do *mojej* grupy na to wydarzenie (powstaje przy pierwszym zaproszeniu) | `m5_chat/group_view.py` |
 | Jedna osoba = najwyżej jedna grupa na wydarzenie; przyjęcie innego zaproszenia = wyjście z obecnej | `groups.accept_invite` |
 | Nową osobę zatwierdza **każdy** członek (karta głosowania na czacie); zapraszający jest „za” od razu, jeden głos „przeciw” odrzuca | `groups.invite` / `groups.vote` |
 | Zaproszona osoba widzi skład grupy, ale **treść czatu dopiero po „Dołącz”**; nad czatem nazwa wydarzenia i rząd awatarów (rośnie z każdą osobą) | `group_view.render_group_head` |
@@ -245,7 +245,7 @@ Klucze prywatne modułów mają prefiks `m1_` … `m5_` — brak kolizji między
 ```mermaid
 stateDiagram-v2
     [*] --> MAP
-    MAP --> CHAT: „Czat grupy” / „Czat wydarzenia” / „Napisz” na pasującej osobie / „Ekipy”
+    MAP --> CHAT: „Czat grupy” / „Czat wydarzenia” / „Dodaj do ekipy” / „Ekipy”
     CHAT --> MAP: „← Mapa”
     MAP --> PROFILE_EDIT: ⚙️ Opcje → Edytuj profil
     PROFILE_EDIT --> MAP: Zapisz / Wróć
@@ -371,7 +371,7 @@ Zmienna `EVENTAPP_DB` pozwala wskazać inną bazę (np. osobną dla sandboxa).
 1. **Problem** (20 s): „Nowa w Krakowie, chce iść na jazz, nie ma z kim”.
 2. **Mapa** (30 s): Ola (`?user=u_ola`) — filtry: *Dziś*, *Muzyka* → pinezka „Jam session jazzowy w piwnicy”.
 3. **Panel** (40 s): szczegóły → lista „Pasujące osoby”: Bartek i Natalia na górze, uzasadnienie „Oboje lubicie: jazz, fotografia” → „Zobacz profil”.
-4. **Ekipa** (40 s): „Napisz” przy Kubie w „Pasujących osobach” → czat grupy z nazwą wydarzenia; druga karta jako Kuba (`?user=u_kuba`): „Ekipy · 1” → „Dołącz” → awatar dochodzi do rzędu na żywo; Ola zaprasza Tomka → Kuba głosuje „Za” na czacie. (Na start Ola ma też zaproszenie do ekipy Kuby, Bartka i Natalii na jazz.)
+4. **Ekipa** (40 s): „Dodaj do ekipy” przy Kubie w „Pasujących osobach” → czat grupy z nazwą wydarzenia; druga karta jako Kuba (`?user=u_kuba`): „Ekipy · 1” → „Dołącz” → awatar dochodzi do rzędu na żywo; Ola zaprasza Tomka → Kuba głosuje „Za” na czacie. (Na start Ola ma też zaproszenie do ekipy Kuby, Bartka i Natalii na jazz.)
 5. **Profil i rekomendacje** (30 s): edycja tagów (+ „opera”) → nowe rekomendacje i dopasowania.
 6. **Dane** (20 s): „X prawdziwych wydarzeń z Krakowa, aktualizowane scraperem”.
 
