@@ -77,3 +77,24 @@ def test_seed_is_idempotent(example_storage: Storage):
     before = example_storage.stats()
     example_storage.seed_example_data()
     assert example_storage.stats() == before
+
+
+def test_hottest_events_get_a_crowd(example_storage: Storage):
+    """Na screeny: CROWD_EVENTS najgorętszych eventów ma kilkadziesiąt zapisanych (tylko społeczność)."""
+    from shared.example_data import CROWD_EVENTS, CROWD_SIZES
+
+    community = {u.id for u in community_users()}
+    sizes = sorted((len(example_storage.list_attendees(e.id)) for e in _scraped_events()), reverse=True)
+    assert all(n >= CROWD_SIZES[1] for n in sizes[:CROWD_EVENTS]), sizes[:CROWD_EVENTS]
+    assert sizes[0] >= CROWD_SIZES[0]
+    crowded = max(_scraped_events(), key=lambda e: len(example_storage.list_attendees(e.id)))
+    going = {a.user_id for a in example_storage.list_attendees(crowded.id)}
+    assert len(going - community) <= 1                                # persony nie robią tłumu
+
+
+def test_community_profiles_are_valid_and_unique():
+    """Te same zasady co walidacja profilu M3: 3–10 tagów, bio ≤ 280; unikalne ID i zdjęcia."""
+    users = community_users()
+    assert len({u.id for u in users}) == len(users)
+    assert len({u.avatar_url for u in users}) == len(users)
+    assert all(3 <= len(u.tags) <= 10 and len(u.bio) <= 280 and u.name for u in users)
