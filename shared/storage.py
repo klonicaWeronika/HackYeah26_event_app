@@ -19,12 +19,14 @@ Użycie:
     storage = get_storage()                    # singleton procesu (data/app.db): mocki + prawdziwe eventy M2
     storage = Storage(":memory:")              # izolowana baza do testów (seed TYLKO z mocków)
 
-Pusta baza plikowa (i --reset) dostaje mocki ORAZ prawdziwe wydarzenia ze snapshotu scrapera M2
-(data/seed_events.json) — zespół nie musi niczego scrapować ani mieć internetu.
+Pusta baza plikowa (i --reset) dostaje mocki, prawdziwe wydarzenia ze snapshotu scrapera M2
+(data/seed_events.json) i przykładową społeczność na nich (shared/example_data.py: osoby, zapisy, czaty)
+— zespół nie musi niczego scrapować ani mieć internetu.
 
 CLI:
     python -m shared.storage --stats
     python -m shared.storage --reset           # wyczyść bazę: świeże mocki (daty od dziś) + snapshot M2
+    python -m shared.storage --example         # dołóż przykładową społeczność do istniejącej bazy
 """
 
 from __future__ import annotations
@@ -473,11 +475,35 @@ class Storage:
                 events.append(event)
         return self.upsert_events(events)
 
+    def seed_example_data(self) -> str:
+        """Przykładowa społeczność (osoby, zapisy, czaty) na prawdziwych eventach z bazy. Idempotentne.
+
+        Zwraca podsumowanie do CLI. Dane i zasady doboru: shared/example_data.py.
+        """
+        from shared.example_data import build_example_dataset, summary  # lazy: jak seed_mocks
+
+        ds = build_example_dataset(self.list_events(), self.list_users())
+        self._write(
+            "INSERT OR REPLACE INTO users (id, data, updated_at) VALUES (?, ?, ?)",
+            [(u.id, u.model_dump_json(), _ts(datetime.now())) for u in ds.users], many=True,
+        )
+        self._write(
+            "INSERT OR REPLACE INTO attendance (user_id, event_id, data) VALUES (?, ?, ?)",
+            [(a.user_id, a.event_id, a.model_dump_json()) for a in ds.attendance], many=True,
+        )
+        self._write(
+            "INSERT OR REPLACE INTO messages (id, room_id, created_at, data) VALUES (?, ?, ?, ?)",
+            [(m.id, m.room_id, _ts(m.created_at), m.model_dump_json()) for m in ds.messages], many=True,
+        )
+        self.invalidate_cache()
+        return summary(ds)
+
     def _seed_demo(self) -> None:
-        """Mocki + (dla bazy plikowej) snapshot M2. Testy na :memory: zostają na samych mockach."""
+        """Mocki + (dla bazy plikowej) snapshot M2 i społeczność na nim. Testy na :memory: — same mocki."""
         self.seed_mocks()
         if self.db_path != ":memory:":
             self.seed_real_events()
+            self.seed_example_data()
 
     def reset(self, *, seed: bool = True) -> None:
         """Czyści WSZYSTKIE dane (opcjonalnie ładuje mocki + snapshot M2). Do testów i przycisku 'Reset demo'."""
@@ -524,10 +550,14 @@ if __name__ == "__main__":
     parser.add_argument("--reset", action="store_true", help="wyczyść bazę i załaduj mocki")
     parser.add_argument("--empty", action="store_true", help="z --reset: NIE ładuj mocków")
     parser.add_argument("--stats", action="store_true", help="pokaż liczbę rekordów")
+    parser.add_argument("--example", action="store_true",
+                        help="dołóż przykładową społeczność (osoby, zapisy, czaty) na prawdziwych eventach")
     args = parser.parse_args()
 
     store = get_storage()
     if args.reset:
         store.reset(seed=not args.empty)
         print(f"Zresetowano bazę {store.db_path}")
+    if args.example:
+        print(f"Przykładowa społeczność: {store.seed_example_data()}")
     print(store.stats())

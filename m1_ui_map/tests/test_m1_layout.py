@@ -9,7 +9,7 @@ from streamlit.testing.v1 import AppTest
 
 from m1_ui_map.layout import (
     LOGO_MARK_PATH, LOGO_PATH, category_label, date_range_for, event_card_html, full_date, plans_caption,
-    sort_events,
+    sort_events, theme_switch_script,
 )
 from m1_ui_map.location import PLACES, Place
 from shared.models import CATEGORY_META, Category, Event, FilterCriteria
@@ -70,6 +70,31 @@ def test_logo_files_exist():
         assert Path(path).read_text(encoding="utf-8").lstrip().startswith("<svg")
 
 
+def test_wordmark_spells_app_name():
+    from shared.config import APP_NAME, APP_WORDMARK
+
+    assert "".join(APP_WORDMARK) == APP_NAME
+
+
+def test_theme_switch_script_uses_streamlit_theme_cache():
+    script = theme_switch_script("Dark")
+    assert "stActiveTheme-" in script and "-v2" in script and "\"Dark\"" not in script
+    assert "JSON.stringify('Dark')" in script and "location.reload()" in script
+    with pytest.raises(ValueError):
+        theme_switch_script("Dark'); alert(1); ('")
+
+
+def test_theme_toggle_emits_script_once(app_storage):
+    at = _run_app()
+    assert not at.get("html"), "bez kliknięcia żadnego skryptu"
+    at.button(key="m1_theme").click().run()
+    scripts = [h.proto.body for h in at.get("html") if "stActiveTheme-" in h.proto.body]
+    assert len(scripts) == 1 and "JSON.stringify('Dark')" in scripts[0]      # AppTest = motyw jasny
+    at.run()
+    assert not [h for h in at.get("html") if "stActiveTheme-" in h.proto.body], "skrypt tylko raz"
+    assert not at.exception
+
+
 @pytest.mark.parametrize("today, preset, expected", [
     (date(2026, 10, 1), "today", (date(2026, 10, 1), date(2026, 10, 1))),
     (date(2026, 10, 1), "tomorrow", (date(2026, 10, 2), date(2026, 10, 2))),
@@ -118,6 +143,35 @@ def test_event_card_is_escaped_and_shows_distance():
     assert "<b>Jazz</b>" not in card and "&lt;b&gt;Jazz&lt;/b&gt;" in card
     assert "Klub &lt;x&gt;" in card and "a%27b.jpg" in card
     assert "1,2 km" in card and "3 osoby idą" in card and ">dziś<" in card
+
+
+@pytest.mark.parametrize(("going", "interested", "expected"), [
+    (14, 3, "14 osób idzie"),                     # zainteresowani nie są doliczani do „idzie”
+    (1, 0, "1 osoba idzie"),
+    (0, 3, "3 osoby zainteresowane"),             # nikt nie idzie, ale ktoś rozważa
+    (0, 1, "1 osoba zainteresowana"),
+    (0, 5, "5 osób zainteresowanych"),
+    (0, 0, "Bądź pierwszy"),
+])
+def test_event_card_people_count(going, interested, expected):
+    card = event_card_html(_event(), going=going, interested=interested, distance=None, today=date(2026, 10, 3))
+    assert f'<span class="muted">{expected}</span>' in card
+
+
+def test_card_count_matches_panel_counter():
+    """Liczba „idzie” na karcie = licznik „Idzie” w panelu (M5), bez „Interesuje mnie”."""
+    from m1_ui_map.layout import going_counts
+    from m5_chat.service import attendance_counts
+    from shared.models import AttendanceStatus
+
+    store = Storage(":memory:")
+    event = store.get_event("e_jazz_alchemia")
+    store.join_event("u_ania", event.id, status=AttendanceStatus.INTERESTED)
+    counts = attendance_counts(store, event.id)
+    assert counts[AttendanceStatus.INTERESTED] >= 1
+    assert going_counts(store, [event]) == {event.id: counts[AttendanceStatus.GOING]}
+    assert going_counts(store, [event])[event.id] < len(store.list_attendees(event.id))
+    store.close()
 
 
 def test_clear_filters_restores_defaults(app_storage):

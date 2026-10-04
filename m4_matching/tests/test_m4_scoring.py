@@ -1,4 +1,4 @@
-"""M4-01 — scoring v1: Jaccard ważony IDF (zakres, monotoniczność, determinizm, tie-break)."""
+"""M4-01 — scoring v1: Dice ważony IDF, pierwotnie Jaccard (zakres, monotoniczność, determinizm, tie-break)."""
 
 from __future__ import annotations
 
@@ -55,8 +55,27 @@ def test_rare_shared_tag_beats_popular_one(idf: IdfWeights):
     rare, _ = tag_similarity(me, ["opera", "x-nieznany-1"], idf=idf)
     popular, _ = tag_similarity(me, ["kino", "x-nieznany-2"], idf=idf)
     assert rare > popular
-    # bez IDF oba przypadki są nie do odróżnienia (klasyczny Jaccard)
+    # bez IDF oba przypadki są nie do odróżnienia (klasyczny Dice)
     assert tag_similarity(me, ["opera", "x1"])[0] == tag_similarity(me, ["kino", "x2"])[0]
+
+
+@pytest.mark.parametrize(("shared", "expected"), [(0, 0.0), (1, 0.2), (2, 0.4), (3, 0.6), (4, 0.8), (5, 1.0)])
+def test_dice_scale_for_typical_profiles(shared: int, expected: float):
+    """Profile po 5 tagów: k wspólnych → 2k / 10 (Jaccard dawał 0.11 / 0.25 / 0.43 dla k = 1 / 2 / 3)."""
+    a = ["a", "b", "c", "d", "e"]
+    b = a[:shared] + ["v", "w", "x", "y", "z"][: 5 - shared]
+    assert tag_similarity(a, b)[0] == pytest.approx(expected)
+
+
+def test_dice_keeps_jaccard_order(idf: IdfWeights):
+    """Dice = 2J / (1 + J) — rosnąca funkcja Jaccarda, więc ranking po samych tagach się nie zmienia."""
+    rnd = random.Random(7)
+    pool = INTEREST_TAGS + ["x-nieznany-1"]
+    for _ in range(200):
+        a, b = rnd.sample(pool, rnd.randint(1, 6)), rnd.sample(pool, rnd.randint(1, 6))
+        union, inter = set(a) | set(b), set(a) & set(b)
+        jaccard = math.fsum(map(idf, inter)) / math.fsum(map(idf, union))
+        assert tag_similarity(a, b, idf=idf)[0] == pytest.approx(2 * jaccard / (1 + jaccard))
 
 
 # --- tag_similarity: zakres, symetria, normalizacja ----------------------- #
@@ -120,7 +139,7 @@ def test_profile_edit_with_shared_tags_never_lowers_match(storage: Storage, demo
 
 # --- match_for_event ----------------------------------------------------- #
 
-def test_tags_signal_is_idf_jaccard(storage: Storage, demo_user: User, idf: IdfWeights):
+def test_tags_signal_is_idf_dice(storage: Storage, demo_user: User, idf: IdfWeights):
     breakdown = match_breakdown(storage, demo_user, "e_jazz_alchemia")
     matches = match_for_event(storage, demo_user, "e_jazz_alchemia")
     for b, m in zip(breakdown, matches, strict=True):

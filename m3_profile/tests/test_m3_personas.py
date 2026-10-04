@@ -6,7 +6,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from m3_profile.personas import DEMO_PERSONAS, persona_label, persona_scenario, sort_for_switcher
+from m3_profile.personas import (
+    DEMO_PERSONAS, persona_label, persona_scenario, sort_for_switcher, switcher_labels,
+)
 from shared.mock_data import DEMO_USER_ID, build_mock_dataset
 from shared.models import User
 
@@ -27,6 +29,15 @@ def test_label_has_scenario_for_personas_and_plain_name_otherwise():
     assert persona_label(User(id="u_ola", name="Ola")) == f"Ola · {DEMO_PERSONAS['u_ola'].tag}"
     assert persona_label(User(id="u_abc123", name="Ewa")) == "Ewa"
     assert persona_scenario("u_ola") and persona_scenario("u_abc123") is None
+
+
+def test_switcher_labels_are_unique_for_same_names():
+    """Selectbox znajduje wybór po etykiecie — dwie „Ewy” nie mogą mieć tej samej."""
+    users = [User(id="u_ewa", name="Ewa"), User(id="u_bb74eeb16ba4", name="Ewa"), User(id="u_ola", name="Ola")]
+    labels = switcher_labels(users)
+    assert len(set(labels.values())) == len(users)
+    assert labels["u_ola"] == persona_label(users[2])            # unikalne etykiety bez zmian
+    assert labels["u_bb74eeb16ba4"] == "Ewa · #6ba4"
 
 
 def test_sort_follows_demo_script_then_new_profiles_alphabetically():

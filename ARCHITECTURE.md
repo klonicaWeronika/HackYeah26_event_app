@@ -1,4 +1,4 @@
-# ARCHITECTURE — KRK Razem (HackYeah 2026)
+# ARCHITECTURE — Meevent (HackYeah 2026)
 
 > Aplikacja webowa (Streamlit) ułatwiająca wspólne wyjścia na wydarzenia kulturalne i społeczne w Krakowie:
 > **mapa wydarzeń → szczegóły → osoby o podobnych zainteresowaniach, które też idą → czat.**

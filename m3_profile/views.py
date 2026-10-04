@@ -15,7 +15,7 @@ from urllib.parse import quote
 import streamlit as st
 
 from m3_profile.avatar import AvatarError, avatar_from_upload  # re-eksport: publiczne API M3 (TASK_SPEC §3.2)
-from m3_profile.personas import persona_label, persona_scenario, sort_for_switcher
+from m3_profile.personas import persona_scenario, sort_for_switcher, switcher_labels
 from m3_profile.privacy import set_visibility_everywhere, visibility_summary
 from m3_profile.profile_data import profile_overlap
 from m3_profile.validation import BIO_MAX, NAME_MAX, TAGS_MAX, TAGS_MIN, validate_profile
@@ -95,7 +95,7 @@ def render_user_switcher(storage: Storage, key: str = "m3_user_switch") -> None:
     users = sort_for_switcher(storage.list_users())       # persony demo w kolejności scenariusza (M3-09)
     ids = [u.id for u in users]
     names = {u.id: u.name for u in users}
-    labels = {u.id: persona_label(u) for u in users}
+    labels = switcher_labels(users)                       # unikalne: selectbox szuka wyboru po etykiecie
     current = state.current_user_id()
 
     if ids and current not in ids:

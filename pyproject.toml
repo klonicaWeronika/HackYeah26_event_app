@@ -1,5 +1,5 @@
 [project]
-name = "krk-razem"
+name = "meevent"
 version = "0.1.0"
 description = "HackYeah 2026 — wspólne wyjścia na wydarzenia w Krakowie (Streamlit MVP)"
 requires-python = ">=3.10"

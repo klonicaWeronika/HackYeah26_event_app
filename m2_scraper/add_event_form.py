@@ -150,7 +150,7 @@ def render_add_event_form(storage: Storage, user: User) -> None:
     free = col_free.checkbox("Wstęp wolny", key=_FIELD + "free")
     col_price.number_input("Cena (zł)", min_value=0.0, value=None, step=5.0, disabled=free,
                            placeholder="puste = nieznana", key=_FIELD + "price")
-    st.text_area("Opis", key=_FIELD + "desc", max_chars=DESCRIPTION_MAX, height=90,
+    st.text_area("Opis", key=_FIELD + "desc", max_chars=DESCRIPTION_MAX, height="content",
                  placeholder="Co się będzie działo? Dla kogo?")
     st.text_input("Link (opcjonalnie)", key=_FIELD + "url", placeholder="https://…")
 
