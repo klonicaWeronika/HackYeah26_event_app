@@ -250,6 +250,19 @@ def test_chat_sheet_keeps_list_filters(app_storage):
     assert not at.exception
 
 
+def test_topbar_add_event_is_icon_only_and_avatar_opens_own_profile(app_storage):
+    at = _run_app()
+    add = at.button(key="m1_add_event_top")
+    assert add.label == "" and add.help == "Dodaj wydarzenie"
+    assert any("Wyjdźmy razem" in m.value for m in at.markdown if 'class="m1-brand"' in m.value)
+    at.button(key="m1_me_btn").click().run()
+    assert at.session_state["view"] == View.PROFILE_VIEW and at.session_state["viewed_user_id"] == "u_ola"
+    assert any("To Twój profil" in m.value for m in at.markdown)            # podgląd z moimi wydarzeniami
+    at.button(key="m1_add_event_top").click().run()
+    assert at.session_state["view"] == View.ADD_EVENT
+    assert not at.exception
+
+
 def test_menu_action_closes_menu_and_switches_view(app_storage):
     at = _run_app()
     at.session_state["m1_menu"] = True

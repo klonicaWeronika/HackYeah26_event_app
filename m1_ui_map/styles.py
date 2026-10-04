@@ -106,6 +106,10 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 /* Streamlit daje kontenerowi markdownu margin-bottom: -1rem -> HTML (logo, profil) siedzi 8 px niżej niż widżety. */
 .st-key-m1_topbar_row [data-testid="stMarkdownContainer"] {margin-bottom: 0;}
 .m1-brand {display: flex; align-items: center; gap: 11px; white-space: nowrap; user-select: none;}
+/* Logo z nazwą zawsze w całości — kurczy się wyszukiwarka, nie znak marki. */
+.st-key-m1_topbar_row > [data-testid="stElementContainer"]:has(.m1-brand) {
+  flex: 0 0 auto !important; width: auto !important; min-width: max-content;
+}
 .m1-brand img {width: 38px; height: 38px; display: block; filter: drop-shadow(0 6px 12px rgba(228, 87, 46, .35));}
 .m1-brand-name {font-size: 1.28rem; font-weight: 800; letter-spacing: -0.03em; color: var(--krk-text); line-height: 1.05;}
 .m1-brand-name span {color: var(--krk-primary);}
@@ -115,7 +119,7 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 }
 
 /* Wyszukiwarka: jedna „pigułka” z polem tekstowym, lokalizacją i przyciskiem. */
-[data-testid="stLayoutWrapper"]:has(> .st-key-m1_search) {flex: 0 1 720px; min-width: 360px; margin: 0 auto;}
+[data-testid="stLayoutWrapper"]:has(> .st-key-m1_search) {flex: 0 1 720px; min-width: 180px; margin: 0 auto;}
 [data-testid="stLayoutWrapper"]:has(> .st-key-m1_actions) {flex: 0 0 auto;}
 .st-key-m1_search {
   flex: 1 1 auto !important; width: 100% !important; height: 50px; padding: 0 5px 0 4px; gap: 0 !important; flex-wrap: nowrap !important;
@@ -137,7 +141,10 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 .st-key-m1_search [data-testid="stTextInput"] > div, .st-key-m1_search [data-testid="stTextInputRootElement"] {
   border: none !important; background: transparent !important;
 }
-.st-key-m1_search [data-testid="stPopover"] {flex: 0 0 auto;}
+.st-key-m1_search [data-testid="stPopover"] {flex: 0 1 auto; min-width: 0;}
+.st-key-m1_search [data-testid="stPopover"] button [data-testid="stMarkdownContainer"] {
+  max-width: 190px; overflow: hidden; text-overflow: ellipsis;
+}
 .st-key-m1_search [data-testid="stPopover"] button {
   border: none; border-left: 1px solid var(--krk-line); border-radius: 0; background: transparent;
   height: 30px; min-height: 0; padding: 0 14px; color: var(--krk-text); white-space: nowrap; box-shadow: none;
@@ -151,16 +158,22 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 
 /* Akcje po prawej. */
 .st-key-m1_actions {gap: 10px !important; flex-wrap: nowrap !important;}
-.st-key-m1_add_event_top button {
-  border-radius: 999px; height: 40px; min-height: 0; padding: 0 16px; background: var(--krk-surface-solid);
-  border: 1px solid var(--krk-line-strong); font-weight: 600; white-space: nowrap;
-}
-.st-key-m1_add_event_top button:hover {border-color: var(--krk-primary); color: var(--krk-primary);}
-.st-key-m1_theme button {
+.st-key-m1_add_event_top button, .st-key-m1_theme button {
   width: 40px; height: 40px; min-height: 0; padding: 0; border-radius: 50% !important;
   background: var(--krk-surface-solid); border: 1px solid var(--krk-line-strong);
 }
-.st-key-m1_theme button:hover {border-color: var(--krk-primary); color: var(--krk-primary);}
+.st-key-m1_add_event_top button:hover, .st-key-m1_theme button:hover {border-color: var(--krk-primary); color: var(--krk-primary);}
+/* Awatar + imię: klikalne (przezroczysty przycisk na wierzchu) -> mój profil. */
+.st-key-m1_me {position: relative; gap: 0 !important;}
+.st-key-m1_me [data-testid="stElementContainer"]:has(button) {
+  position: absolute !important; inset: 0; z-index: 2; width: 100% !important; height: 100%;
+}
+.st-key-m1_me [data-testid="stElementContainer"]:has(button) > div, .st-key-m1_me [data-testid="stButton"] {
+  width: 100%; height: 100%;
+}
+.st-key-m1_me button {width: 100%; height: 100%; min-height: 0; opacity: 0; border-radius: 999px; cursor: pointer;}
+.st-key-m1_me .m1-header {border-radius: 999px; transition: background .15s ease;}
+.st-key-m1_me:hover .m1-header {background: var(--krk-soft-2);}
 .m1-header {display: flex; align-items: center; gap: 10px; padding: 3px 6px 3px 3px; white-space: nowrap;}
 .m1-header .m1-hello {font-weight: 650; font-size: 0.92rem; line-height: 1.2; color: var(--krk-text);}
 .m1-header .m1-plans {font-size: 0.74rem; color: var(--krk-muted); line-height: 1.2;}
@@ -545,7 +558,12 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 /* ============ Wąskie ekrany ============ */
 @media (max-width: 1180px) {
   .m1-brand-tag, .m1-header > div:last-child {display: none;}
-  .st-key-m1_add_event_top button p {display: none;}
+  .st-key-m1_search [data-testid="stPopover"] button [data-testid="stMarkdownContainer"] {max-width: 110px;}
+}
+@media (max-width: 1024px) {
+  /* Lokalizacja jako sama ikona — miejsce zostaje dla pola wyszukiwania (okolica jest też nad listą). */
+  .st-key-m1_search [data-testid="stPopover"] button [data-testid="stMarkdownContainer"] {display: none;}
+  .st-key-m1_search [data-testid="stPopover"] button {padding: 0 10px;}
 }
 @media (max-width: 860px) {
   :root {--krk-gap: 10px; --krk-topbar: 60px; --krk-catbar: 80px;}
@@ -556,8 +574,7 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
   .st-key-m1_search [data-testid="stPopover"] button {padding: 0 8px;}
   .st-key-m1_search [data-testid="stPopover"] button [data-testid="stMarkdownContainer"],
   .st-key-m1_actions [data-testid="stPopover"] button [data-testid="stMarkdownContainer"] {display: none;}
-  .st-key-m1_search_go, .st-key-m1_add_event_top,
-  .st-key-m1_actions [data-testid="stElementContainer"]:has(.m1-header) {display: none !important;}
+  .st-key-m1_search_go, .st-key-m1_add_event_top, .st-key-m1_me {display: none !important;}
   .st-key-m1_actions [data-testid="stPopover"] button {padding: 0 12px;}
   .st-key-m1_catbar {padding: 0 6px 4px;}
   .st-key-m1_catbar [data-testid="stButtonGroup"] {margin: 0;}

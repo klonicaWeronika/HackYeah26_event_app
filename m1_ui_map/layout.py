@@ -1,7 +1,7 @@
 """
 M1 — layout aplikacji: mapa na cały ekran i pływające nad nią elementy.
 
-    ┌────────── górny pasek: logo │ [🔍 szukaj │ 📍 lokalizacja + promień │ ●] │ dodaj · ☾ · osoba · menu ┐
+    ┌──── górny pasek: logo │ [🔍 szukaj │ 📍 lokalizacja + promień │ ●] │ ⊕ · ☾ · ekipy · osoba · menu ┐
     │                         pasek kategorii: kółka z ikonami i liczbą wydarzeń                          │
     ├──────────────┐                                                                    ┌────────────────┤
     │ lista        │◀                    MAPA (cały ekran, pod spodem)                 ▶│ szczegóły /    │
@@ -11,6 +11,8 @@ M1 — layout aplikacji: mapa na cały ekran i pływające nad nią elementy.
 
 Panele chowają się uchwytem na krawędzi (◀ ▶). Czat / profil / formularz otwierają się jako szeroki
 arkusz w miejscu listy — mapa pod spodem zostaje zamontowana (bez resetu widoku).
+Górny pasek: wyszukiwarka kurczy się z oknem (logo zawsze w całości), „Dodaj wydarzenie” to sama ikona,
+klik w awatar/imię otwiera podgląd własnego profilu (moje wydarzenia).
 Styl: ikony Material zamiast emoji, kolory w zmiennych CSS -> jasny i ciemny motyw (patrz styles.py).
 """
 
@@ -351,12 +353,20 @@ def render_header(storage: Storage, user: User) -> None:
             st.button("", key="m1_search_go", icon=":material/search:", help="Szukaj")
         with st.container(key="m1_actions", horizontal=True, vertical_alignment="center", width="content"):
             if FEATURES["add_event"]:
-                st.button("Dodaj wydarzenie", key="m1_add_event_top", icon=":material/add_location_alt:",
-                          on_click=state.go_to, args=(View.ADD_EVENT,))
+                st.button("", key="m1_add_event_top", icon=":material/add_location_alt:",
+                          help="Dodaj wydarzenie", on_click=state.go_to, args=(View.ADD_EVENT,))
             _render_theme_toggle()
             render_inbox(storage, user)                   # M5: grupy, zaproszenia, głosowania, DM
-            st.markdown(_user_html(user, 38, plans_caption(going)), unsafe_allow_html=True)
+            _render_me(user, plans_caption(going))
             _render_menu(storage, user)
+
+
+def _render_me(user: User, subtitle: str) -> None:
+    """Awatar + imię w pasku: cały klikalny (przezroczysty przycisk na wierzchu) -> podgląd mojego profilu."""
+    with st.container(key="m1_me", width="content", gap=None):
+        st.markdown(_user_html(user, 38, subtitle), unsafe_allow_html=True)
+        st.button("Mój profil", key="m1_me_btn", help="Twój profil i Twoje wydarzenia",
+                  on_click=state.go_to, args=(View.PROFILE_VIEW,), kwargs={"user_id": user.id})
 
 
 def render_category_bar() -> list[Category]:

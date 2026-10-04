@@ -7,7 +7,7 @@ Włączamy je na checkpointach integracyjnych (patrz ARCHITECTURE.md -> Harmonog
 
 APP_NAME = "Meevent"
 APP_WORDMARK = ("Mee", "vent")     # logo w górnym pasku: początek + reszta w kolorze marki (razem = APP_NAME)
-APP_TAGLINE = "Wyjdź na miasto — razem"
+APP_TAGLINE = "Wyjdźmy razem"
 
 DEFAULT_USER_ID = "u_ola"          # użytkownik demo (brak logowania w MVP)
 CHAT_POLL_SECONDS = 2.0            # co ile fragment czatu dociąga nowe wiadomości
