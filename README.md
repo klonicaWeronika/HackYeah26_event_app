@@ -51,10 +51,9 @@ everywhere with one click.
 <table>
   <tr>
     <td width="50%"><img src="docs/screenshots/01_map.jpg" alt="Map of Kraków events"><br>
-      <b>The whole city on one map.</b> About 700 events, a category bar with live counts and "Recommended for
-      you".</td>
+      <b>The whole city on one map.</b> About 700 events, a category bar with live counts and recommendations.</td>
     <td width="50%"><img src="docs/screenshots/05_matching_people.jpg" alt="Matching people"><br>
-      <b>Matching people.</b> Everyone going, ranked by shared interests, with the common tags highlighted.</td>
+      <b>Matching people.</b> Everyone going, ranked by shared interests, with the common tags highlighted.                         </td>
   </tr>
   <tr>
     <td><img src="docs/screenshots/10_crew_vote.jpg" alt="Crew vote"><br>
@@ -68,7 +67,8 @@ everywhere with one click.
       <b>Close to me.</b> Pick a neighbourhood or click any point on the map, and the results are limited to a
       radius around it.</td>
     <td><img src="docs/screenshots/14_dark_mode.jpg" alt="Dark mode"><br>
-      <b>Light and dark theme</b>, map included, switched with one click.</td>
+      <b>Light and dark theme</b>, map included, switched with one click.
+    </td>
   </tr>
 </table>
 
