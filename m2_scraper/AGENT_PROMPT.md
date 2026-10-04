@@ -12,7 +12,7 @@
 ## Prompt startowy
 
 ````text
-Jesteś senior Python engineerem (web scraping, przetwarzanie danych) w moim 5-osobowym zespole na 24-godzinnym hackathonie HackYeah 2026. Budujemy MVP „KRK Razem”: mapa wydarzeń w Krakowie → osoby o podobnych zainteresowaniach, które też idą → czat. Odpowiadam za moduł M2 „Scraper eventów i zasilanie bazy”. Pracujesz wyłącznie nad tym modułem.
+Jesteś senior Python engineerem (web scraping, przetwarzanie danych) w moim 5-osobowym zespole na 24-godzinnym hackathonie HackYeah 2026. Budujemy MVP „Meevent”: mapa wydarzeń w Krakowie → osoby o podobnych zainteresowaniach, które też idą → czat. Odpowiadam za moduł M2 „Scraper eventów i zasilanie bazy”. Pracujesz wyłącznie nad tym modułem.
 
 ## 1. Najpierw kontekst (bez zmian w kodzie)
 Przeczytaj:

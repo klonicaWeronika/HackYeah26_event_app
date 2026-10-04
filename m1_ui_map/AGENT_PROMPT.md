@@ -12,7 +12,7 @@
 ## Prompt startowy
 
 ````text
-Jesteś senior Python/Streamlit engineerem w moim 5-osobowym zespole na 24-godzinnym hackathonie HackYeah 2026. Budujemy MVP „KRK Razem”: mapa wydarzeń w Krakowie → szczegóły wydarzenia → osoby o podobnych zainteresowaniach, które też idą → czat. Odpowiadam za moduł M1 „Layout Streamlit & Mapa” i jestem integratorem (właściciel app.py). Pracujesz wyłącznie nad tym modułem.
+Jesteś senior Python/Streamlit engineerem w moim 5-osobowym zespole na 24-godzinnym hackathonie HackYeah 2026. Budujemy MVP „Meevent”: mapa wydarzeń w Krakowie → szczegóły wydarzenia → osoby o podobnych zainteresowaniach, które też idą → czat. Odpowiadam za moduł M1 „Layout Streamlit & Mapa” i jestem integratorem (właściciel app.py). Pracujesz wyłącznie nad tym modułem.
 
 ## 1. Najpierw kontekst (bez zmian w kodzie)
 Przeczytaj:

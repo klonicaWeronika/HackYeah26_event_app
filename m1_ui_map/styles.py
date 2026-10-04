@@ -106,7 +106,7 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 .m1-brand {display: flex; align-items: center; gap: 11px; white-space: nowrap; user-select: none;}
 .m1-brand img {width: 38px; height: 38px; display: block; filter: drop-shadow(0 6px 12px rgba(228, 87, 46, .35));}
 .m1-brand-name {font-size: 1.28rem; font-weight: 800; letter-spacing: -0.03em; color: var(--krk-text); line-height: 1.05;}
-.m1-brand-name span {font-weight: 500; margin-left: 4px;}
+.m1-brand-name span {color: var(--krk-primary);}
 .m1-brand-tag {
   font-size: 0.72rem; color: var(--krk-muted); letter-spacing: 0.01em; margin-top: 2px;
   font-family: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -154,6 +154,11 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
   border: 1px solid var(--krk-line-strong); font-weight: 600; white-space: nowrap;
 }
 .st-key-m1_add_event_top button:hover {border-color: var(--krk-primary); color: var(--krk-primary);}
+.st-key-m1_theme button {
+  width: 40px; height: 40px; min-height: 0; padding: 0; border-radius: 50% !important;
+  background: var(--krk-surface-solid); border: 1px solid var(--krk-line-strong);
+}
+.st-key-m1_theme button:hover {border-color: var(--krk-primary); color: var(--krk-primary);}
 .m1-header {display: flex; align-items: center; gap: 10px; padding: 3px 6px 3px 3px; white-space: nowrap;}
 .m1-header .m1-hello {font-weight: 650; font-size: 0.92rem; line-height: 1.2; color: var(--krk-text);}
 .m1-header .m1-plans {font-size: 0.74rem; color: var(--krk-muted); line-height: 1.2;}

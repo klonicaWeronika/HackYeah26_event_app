@@ -1,7 +1,7 @@
 """
 M1 — layout aplikacji: mapa na cały ekran i pływające nad nią elementy.
 
-    ┌────────────── górny pasek: logo │ [🔍 szukaj │ 📍 lokalizacja + promień │ ●] │ dodaj · osoba · menu ┐
+    ┌────────── górny pasek: logo │ [🔍 szukaj │ 📍 lokalizacja + promień │ ●] │ dodaj · ☾ · osoba · menu ┐
     │                         pasek kategorii: kółka z ikonami i liczbą wydarzeń                          │
     ├──────────────┐                                                                    ┌────────────────┤
     │ lista        │◀                    MAPA (cały ekran, pod spodem)                 ▶│ szczegóły /    │
@@ -35,20 +35,21 @@ from m4_matching.engine import match_for_event, plural_pl
 from m4_matching.widgets import render_recommendations
 from m5_chat.chat_view import render_attendance_controls
 from shared import state
-from shared.config import APP_NAME, APP_TAGLINE, FEATURES, MAX_MATCHES_IN_PANEL
+from shared.config import APP_TAGLINE, APP_WORDMARK, FEATURES, MAX_MATCHES_IN_PANEL
 from shared.formatting import format_price, format_when
 from shared.models import CATEGORY_META, Category, Event, FilterCriteria, User, event_room_id
 from shared.state import View
 from shared.storage import Storage
 
 _ASSETS = Path(__file__).resolve().parent / "assets"
-LOGO_PATH = str(_ASSETS / "logo.svg")             # znak + „KRK Razem”
+LOGO_PATH = str(_ASSETS / "logo.svg")             # znak + „Meevent”
 LOGO_MARK_PATH = str(_ASSETS / "logo_mark.svg")   # sam znak (górny pasek, favicon)
 
 PAGE_SIZE = 25                                    # kart na liście, potem „Pokaż więcej”
 WHOLE_CITY = "Cały Kraków"
 _MENU_KEY = "m1_menu"                             # stan popovera „Menu” (True = otwarte)
 _LOC_KEY = "m1_loc"                               # stan popovera lokalizacji
+_THEME_KEY = "m1_theme_switch"                    # motyw do zapisania w przeglądarce w tym przebiegu
 _FILTER_FIELDS = ("query", "cats", "when", "dates", "tags", "free", "sort", "place", "radius")
 
 _CATEGORY_ICONS: dict[Category, str] = {
@@ -189,7 +190,7 @@ def _logo_mark_uri() -> str:
 
 
 def _brand_html() -> str:
-    first, _, rest = APP_NAME.partition(" ")
+    first, rest = APP_WORDMARK
     return (
         f'<div class="m1-brand"><img src="{_logo_mark_uri()}" alt="">'
         f'<div><div class="m1-brand-name">{html.escape(first)}<span>{html.escape(rest)}</span></div>'
@@ -301,6 +302,36 @@ def _render_location_popover() -> None:
             )
 
 
+def theme_switch_script(theme: str) -> str:
+    """JS przełącznika motywu: zapis tam, gdzie Streamlit trzyma wybór z menu „Settings”, + przeładowanie.
+
+    Streamlit nie ma API do zmiany motywu z Pythona, a jego menu ustawień ukrywa `toolbarMode = "minimal"`.
+    Frontend przy starcie czyta `localStorage["stActiveTheme-<ścieżka>-v2"]` = "Light" | "Dark" | "System"
+    (Streamlit 1.65, static/js/utils.*.js) — wybór zostaje na kolejne wizyty, ?user= w URL przeżywa reload.
+    """
+    if theme not in ("Light", "Dark"):
+        raise ValueError(f"Nieznany motyw: {theme!r}")
+    return (
+        "<script>window.localStorage.setItem('stActiveTheme-' + window.location.pathname + '-v2', "
+        f"JSON.stringify('{theme}')); window.location.reload();</script>"
+    )
+
+
+def _request_theme(theme: str) -> None:
+    st.session_state[_THEME_KEY] = theme
+
+
+def _render_theme_toggle() -> None:
+    """Ikona księżyca / słońca: przełącza jasny i ciemny motyw (całej aplikacji, z mapą włącznie)."""
+    dark = is_dark_theme()
+    st.button(
+        "", key="m1_theme", icon=":material/light_mode:" if dark else ":material/dark_mode:",
+        help="Tryb jasny" if dark else "Tryb ciemny", on_click=_request_theme, args=("Light" if dark else "Dark",),
+    )
+    if theme := st.session_state.pop(_THEME_KEY, None):
+        st.html(theme_switch_script(theme), unsafe_allow_javascript=True)
+
+
 def render_header(storage: Storage, user: User) -> None:
     """Górny pasek (logo, wyszukiwarka z lokalizacją, akcje, menu) — przyklejony do góry ekranu."""
     going = len(storage.list_user_attendance(user.id))
@@ -317,6 +348,7 @@ def render_header(storage: Storage, user: User) -> None:
             if FEATURES["add_event"]:
                 st.button("Dodaj wydarzenie", key="m1_add_event_top", icon=":material/add_location_alt:",
                           on_click=state.go_to, args=(View.ADD_EVENT,))
+            _render_theme_toggle()
             st.markdown(_user_html(user, 38, plans_caption(going)), unsafe_allow_html=True)
             _render_menu(storage, user)
 

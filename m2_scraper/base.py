@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 HTTP_CACHE_DIR = PROJECT_ROOT / "data" / "cache" / "http"
 CA_BUNDLE_PATH = PROJECT_ROOT / "data" / "cache" / "ca_bundle.pem"
 CERTS_DIR = Path(__file__).resolve().parent / "certs"
-USER_AGENT = "KRKRazem-HackYeah-demo/0.1 (hackathon project; contact: team)"
+USER_AGENT = "Meevent-HackYeah-demo/0.1 (hackathon project; contact: team)"
 ROBOTS_TTL_S = 24 * 3600
 
 
