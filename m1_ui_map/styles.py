@@ -238,6 +238,9 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
   border-radius: var(--krk-radius); box-shadow: var(--krk-shadow), 0 0 0 1px var(--krk-line);
   padding: 18px 18px 22px; gap: 0.7rem !important; flex-wrap: nowrap !important;
 }
+/* Arkusz sam jest fixed: height 100% = wysokość okna, więc dół wychodził poza ekran i nie było czego przewijać.
+   Wysokość z top/bottom -> arkusz kończy się nad dolną krawędzią, a nadmiar przewija overflow-y: auto. */
+.st-key-m1_sheet {height: auto;}
 .st-key-m1_left:has(.st-key-m1_left_toggle input:checked) {transform: translateX(calc(-100% - var(--krk-gap)));}
 .st-key-m1_right:has(.st-key-m1_right_toggle input:checked) {transform: translateX(calc(100% + var(--krk-gap)));}
 
