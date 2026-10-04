@@ -3,7 +3,7 @@
 <p align="center"><b>Don't skip the event because you have no one to go with.</b><br>
 A social map of Kraków's events: see who else is going and go together.</p>
 
-<p align="center"><i>HackYeah 2026 · Open Task: Smart City</i></p>
+<p align="center"><i>HackYeah 2026 </i></p>
 
 <p align="center">
   <img src="docs/demo.gif" alt="Meevent demo: filtering Kraków events on the map, opening an event, seeing matching people, joining a crew, chatting, inviting someone by group vote, the all-attendees chat and dark mode" width="100%">
