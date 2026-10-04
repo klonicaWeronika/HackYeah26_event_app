@@ -459,6 +459,10 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 .m1-menu-user .m1-hello {font-size: 0.95rem; font-weight: 650;}
 .m1-sep {height: 1px; background: rgba(128, 128, 128, 0.2); margin: 0.35rem 0;}
 .st-key-m1_menu_reset [data-testid="stBaseButton-tertiary"] {color: #D9431A;}
+/* Bez ujemnego marginesu markdownu (nagłówek, separatory) i z przerwą między opcjami
+   podświetlenie po najechaniu nie wchodzi na sąsiednie elementy. */
+.st-key-m1_menu_body {gap: 4px !important;}
+.st-key-m1_menu_body [data-testid="stMarkdownContainer"]:has(.m1-menu-user, .m1-sep) {margin-bottom: 0;}
 
 /* Popover lokalizacji. */
 [data-testid="stPopoverBody"]:has(.st-key-m1_loc_body) {width: 380px; padding: 0.9rem 1rem; border-radius: 18px;}
@@ -483,6 +487,16 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 .st-key-m1_pick_cancel button {
   border-radius: 999px; height: 34px; min-height: 0; padding: 0 14px; background: var(--krk-surface-solid);
   border: 1px solid var(--krk-line-strong); box-shadow: var(--krk-shadow-sm); font-size: 0.82rem;
+}
+
+/* ============ Edycja profilu (M3): zdjęcie ============ */
+/* Podgląd awatara bez ujemnego marginesu markdownu -> dokładnie na środku wysokości kolumny z uploadem. */
+[data-testid="stHorizontalBlock"]:has([class*="st-key-m3_avatar_upload_"])
+  [data-testid="stMarkdownContainer"]:has(div[aria-hidden="true"]) {margin-bottom: 0;}
+/* Zamiast „200MB per file • …” (limit serwera; prawdziwy limit 5 MB jest w etykiecie) same formaty. */
+[class*="st-key-m3_avatar_upload_"] [data-testid="stFileUploaderDropzoneInstructions"] span {font-size: 0;}
+[class*="st-key-m3_avatar_upload_"] [data-testid="stFileUploaderDropzoneInstructions"] span::after {
+  content: "JPG, PNG, WEBP"; font-size: 0.875rem;
 }
 
 /* ============ Wąskie ekrany ============ */
