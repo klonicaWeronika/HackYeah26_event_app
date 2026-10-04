@@ -145,6 +145,35 @@ def test_event_card_is_escaped_and_shows_distance():
     assert "1,2 km" in card and "3 osoby idą" in card and ">dziś<" in card
 
 
+@pytest.mark.parametrize(("going", "interested", "expected"), [
+    (14, 3, "14 osób idzie"),                     # zainteresowani nie są doliczani do „idzie”
+    (1, 0, "1 osoba idzie"),
+    (0, 3, "3 osoby zainteresowane"),             # nikt nie idzie, ale ktoś rozważa
+    (0, 1, "1 osoba zainteresowana"),
+    (0, 5, "5 osób zainteresowanych"),
+    (0, 0, "Bądź pierwszy"),
+])
+def test_event_card_people_count(going, interested, expected):
+    card = event_card_html(_event(), going=going, interested=interested, distance=None, today=date(2026, 10, 3))
+    assert f'<span class="muted">{expected}</span>' in card
+
+
+def test_card_count_matches_panel_counter():
+    """Liczba „idzie” na karcie = licznik „Idzie” w panelu (M5), bez „Interesuje mnie”."""
+    from m1_ui_map.layout import going_counts
+    from m5_chat.service import attendance_counts
+    from shared.models import AttendanceStatus
+
+    store = Storage(":memory:")
+    event = store.get_event("e_jazz_alchemia")
+    store.join_event("u_ania", event.id, status=AttendanceStatus.INTERESTED)
+    counts = attendance_counts(store, event.id)
+    assert counts[AttendanceStatus.INTERESTED] >= 1
+    assert going_counts(store, [event]) == {event.id: counts[AttendanceStatus.GOING]}
+    assert going_counts(store, [event])[event.id] < len(store.list_attendees(event.id))
+    store.close()
+
+
 def test_clear_filters_restores_defaults(app_storage):
     at = _run_app()
     default_count = _results_count(at)

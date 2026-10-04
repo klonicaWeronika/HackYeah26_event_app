@@ -12,8 +12,9 @@ import streamlit as st
 
 from m1_ui_map.layout import (
     LOGO_MARK_PATH, apply_picked_point, category_counts, current_location, inject_css, is_dark_theme,
-    map_focus, note_map_selection, render_category_bar, render_category_counts, render_event_list,
-    render_event_panel, render_filters, render_header, render_list_header, render_pick_banner, sort_events,
+    going_counts, map_focus, note_map_selection, render_category_bar, render_category_counts,
+    render_event_list, render_event_panel, render_filters, render_header, render_list_header,
+    render_pick_banner, sort_events,
 )
 from m1_ui_map.location import within_radius
 from m1_ui_map.map_view import render_map
@@ -59,7 +60,9 @@ _, center, radius_km = location = current_location()
 events = within_radius(storage.list_events(criteria), center, radius_km)
 with title_box:
     sort = render_list_header(len(events), location)
-events = sort_events(events, sort, counts=storage.attendee_counts(), center=center)
+# Popularność = liczba „Idę!” — ta sama liczba, co na karcie i w panelu (bez „Interesuje mnie”).
+popularity = going_counts(storage, events) if sort == "popular" else {}
+events = sort_events(events, sort, counts=popularity, center=center)
 render_category_counts(category_counts(storage, criteria, center, radius_km))
 
 # --- Mapa na cały ekran ------------------------------------------------------------------------------
