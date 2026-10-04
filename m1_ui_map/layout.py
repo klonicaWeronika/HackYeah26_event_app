@@ -19,6 +19,7 @@ from __future__ import annotations
 import base64
 import html
 from collections import Counter
+from collections.abc import Iterable
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -34,10 +35,11 @@ from m3_profile.views import avatar_html, render_user_card, render_user_switcher
 from m4_matching.engine import match_for_event, plural_pl
 from m4_matching.widgets import render_recommendations
 from m5_chat.chat_view import render_attendance_controls
+from m5_chat.service import attendance_counts
 from shared import state
 from shared.config import APP_TAGLINE, APP_WORDMARK, FEATURES, MAX_MATCHES_IN_PANEL
 from shared.formatting import format_price, format_when
-from shared.models import CATEGORY_META, Category, Event, FilterCriteria, User, event_room_id
+from shared.models import CATEGORY_META, AttendanceStatus, Category, Event, FilterCriteria, User, event_room_id
 from shared.state import View
 from shared.storage import Storage
 
@@ -469,14 +471,32 @@ def _price_html(event: Event) -> str:
     return f'<span class="m1-price">{event.price_pln:.0f} zł<small>/ bilet</small></span>'
 
 
-def event_card_html(event: Event, *, going: int, distance: float | None, today: date) -> str:
-    """Karta na liście (styl job boardu): miniatura, miejsce i termin, tytuł, cena, tagi, stopka."""
+def going_counts(storage: Storage, events: Iterable[Event]) -> dict[str, int]:
+    """{event_id: liczba „Idę!”} — jak licznik „Idzie” w panelu (M5), bez „Interesuje mnie”."""
+    return {e.id: attendance_counts(storage, e.id)[AttendanceStatus.GOING] for e in events}
+
+
+def _people_html(going: int, interested: int) -> str:
+    if going:
+        return f"{going} {plural_pl(going, 'osoba idzie', 'osoby idą', 'osób idzie')}"
+    if interested:
+        noun = plural_pl(interested, "osoba zainteresowana", "osoby zainteresowane", "osób zainteresowanych")
+        return f"{interested} {noun}"
+    return "Bądź pierwszy"
+
+
+def event_card_html(
+    event: Event, *, going: int, distance: float | None, today: date, interested: int = 0,
+) -> str:
+    """Karta na liście (styl job boardu): miniatura, miejsce i termin, tytuł, cena, tagi, stopka.
+
+    `going` — tylko „Idę!” (jak licznik w panelu M5); `interested` pokazujemy, gdy nikt jeszcze nie idzie.
+    """
     tags = "".join(f'<span class="m1-tag">{html.escape(t)}</span>' for t in event.tags[:3])
     foot_right = ""
     if distance is not None:
         foot_right = f'<span class="right">{_icon("near_me")}{format_distance(distance)}</span>'
-    people = (f"{going} {plural_pl(going, 'osoba idzie', 'osoby idą', 'osób idzie')}" if going
-              else "Bądź pierwszy")
+    people = _people_html(going, interested)
     return (
         '<div class="m1-card">'
         f"{_thumb_html(event)}"
@@ -521,12 +541,13 @@ def render_event_list(storage: Storage, events: list[Event], *, selected_id: str
                   on_click=_clear_filters, width="stretch")
         return
     today = date.today()
-    counts = storage.attendee_counts()
     shown = events[: st.session_state.get("m1_page", PAGE_SIZE)]
     for event in shown:
         distance = event_distance_km(event, center) if center else None
+        counts = attendance_counts(storage, event.id)
         with st.container(key=f"m1_card_{event.id}"):
-            st.markdown(event_card_html(event, going=counts.get(event.id, 0), distance=distance, today=today),
+            st.markdown(event_card_html(event, going=counts[AttendanceStatus.GOING], distance=distance,
+                                        today=today, interested=counts[AttendanceStatus.INTERESTED]),
                         unsafe_allow_html=True)
             st.button(f"Pokaż: {event.title}", key=f"m1_pick_{event.id}",
                       on_click=_select_from_list, args=(event.id,))
