@@ -14,7 +14,7 @@ streamlit run app.py
 
 Baza `data/app.db` tworzy się sama i ładuje dane demo (36 wydarzeń w prawdziwych miejscach Krakowa, 12 person).
 Dwie osoby naraz (demo czatu): `http://localhost:8501/?user=u_ola` i `http://localhost:8501/?user=u_kuba`.
-Czat działa w grupach na wydarzenia („Ekipy” w górnym pasku); baza sprzed tej zmiany nie ma grup demo → `python -m shared.storage --reset`.
+Przy wydarzeniu są dwa czaty: grupy („ekipy”, zaproszenia i głosowania) i wszystkich uczestników; baza sprzed tej zmiany nie ma grup demo → `python -m shared.storage --reset`.
 
 ```bash
 pytest                              # wszystkie testy + smoke test aplikacji i sandboxów

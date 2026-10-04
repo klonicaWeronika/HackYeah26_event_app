@@ -38,7 +38,7 @@ Osoby idące na to samo wydarzenie mogą się umówić: zapisują się jednym kl
 | M5-07 | Wiadomości systemowe: „Kuba dołączył do wydarzenia 🎉” przy `join_event` (`user_id="system"`, osobny styl) | SHOULD | 1 h | Dołączenie widoczne w czacie wydarzenia |
 | M5-08 | Przypięta wiadomość organizacyjna („Spotykamy się 19:45 przy wejściu”) / reakcje emoji | COULD | 1.5 h | Przypięta wiadomość widoczna nad listą |
 | M5-09 | Icebreakery: podpowiedzi pierwszej wiadomości z `MatchResult.shared_tags` (M4) | COULD | 1 h | Pusty DM pokazuje 3 klikalne propozycje |
-| M5-10 | **Grupy na wydarzenia („ekipy”)** zamiast publicznego czatu wydarzenia: „Napisz” na pasującej osobie i lista „Idą / Interesuje ich” = zaproszenie do mojej grupy; zaproszona osoba dołącza albo odrzuca; każde kolejne zaproszenie zatwierdza cała grupa (głosowanie na czacie); 1 grupa na wydarzenie; nazwa wydarzenia i rząd awatarów nad czatem; „Opuść”; skrzynka „Ekipy” + toasty | SHOULD (mockup) | 4 h | Ola zaprasza Kubę → Kuba (druga karta) dołącza → Ola zaprasza Tomka → Kuba głosuje „Za” → Tomek dostaje zaproszenie |
+| M5-10 | **Grupy na wydarzenia („ekipy”)** obok czatu wszystkich uczestników (przełącznik „Grupa / Wszyscy”): „Napisz” na pasującej osobie i lista „Idą / Interesuje ich” = zaproszenie do mojej grupy; zaproszona osoba widzi skład, ale treść czatu dopiero po dołączeniu; każde kolejne zaproszenie zatwierdza cała grupa (głosowanie na czacie); 1 grupa na wydarzenie; nazwa wydarzenia i rząd awatarów nad czatem; „Opuść”; skrzynka „Ekipy” + toasty | SHOULD (mockup) | 4 h | Ola zaprasza Kubę → Kuba (druga karta) dołącza → Ola zaprasza Tomka → Kuba głosuje „Za” → Tomek dostaje zaproszenie |
 
 ### 2.3 Poza zakresem
 
@@ -57,7 +57,7 @@ from shared import state             # go_to(View.CHAT, room_id=...), chat_room_
 from shared.config import CHAT_POLL_SECONDS, FEATURES
 ```
 
-Konwencja pokojów: `group:<group_id>` (czat grupy, M5-10) i `dm:<user_a>:<user_b>` (posortowane) — **tylko** przez `group_room_id()` / `dm_room_id()`. `event:<event_id>` zostaje w kontrakcie, ale UI go już nie otwiera.
+Konwencja pokojów: `group:<group_id>` (czat grupy, M5-10), `event:<event_id>` (czat wszystkich) i `dm:<user_a>:<user_b>` (posortowane) — **tylko** przez `group_room_id()` / `event_room_id()` / `dm_room_id()`.
 
 ### 3.2 Wyjście — publiczne API
 
@@ -80,7 +80,7 @@ open_dm(me_id: str, other_id: str) -> None          # callback dla „Napisz” 
 #     member_group, received_invites, votes_awaiting, invite_candidates, role_in
 # m5_chat/group_view.py (UI):
 open_event_chat(me_id, other_id, event_id) -> None                    # „Napisz” na karcie pasującej osoby (M3)
-render_event_group_entry(storage, event_id, user) -> None             # sekcja ekipy w panelu wydarzenia (M1)
+render_event_chat_entry(storage, event_id, user) -> None              # panel (M1): czat grupy | czat wydarzenia
 # m5_chat/inbox.py (UI):
 render_inbox(storage, user) -> None                                   # skrzynka „Ekipy” w górnym pasku (M1)
 render_group_notifier(storage, user) -> None                          # toasty o zaproszeniach z innych kart (app.py)

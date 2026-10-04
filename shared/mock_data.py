@@ -21,6 +21,7 @@ from shared.models import (
     EventGroup,
     GroupInvite,
     User,
+    event_room_id,
     group_room_id,
 )
 
@@ -229,7 +230,16 @@ _INVITES: list[tuple] = [
     ("g_jazz", "u_ola", "u_kuba", 30),
 ]
 
-# (group_id, user_id, minut_temu, tekst)
+# Publiczny czat wydarzenia (wszyscy): (event_id, user_id, minut_temu, tekst)
+_EVENT_MESSAGES: list[tuple] = [
+    ("e_jazz_alchemia", "u_tomek", 150, "Ktoś wie, czy trzeba rezerwować stolik, czy wystarczy przyjść?"),
+    ("e_jazz_alchemia", "u_natalia", 135, "W zeszłym tygodniu było luźno, ale po 21 robi się tłoczno 🙂"),
+    ("e_jazz_alchemia", "u_kuba", 60, "Mamy ekipę przy scenie — jak idziecie sami, dajcie znać!"),
+    ("e_planszowki", "u_ola", 260, "Będą też gry dla początkujących?"),
+    ("e_planszowki", "u_michal", 250, "Jasne, zawsze jest stół z prostymi grami na start 🎲"),
+]
+
+# Czat grupy: (group_id, user_id, minut_temu, tekst)
 _MESSAGES: list[tuple] = [
     ("g_jazz", "u_kuba", 95, "Ktoś idzie od początku? Będę ok. 19:50 przy barze 🎷"),
     ("g_jazz", "u_bartek", 80, "Ja dołączę koło 20:30, biorę aparat."),
@@ -289,6 +299,10 @@ def build_mock_dataset(today: date | None = None, reference_now: datetime | None
         ChatMessage(id=f"msg_seed_{i:03d}", room_id=group_room_id(group_id), user_id=user_id, text=text,
                     created_at=reference_now - timedelta(minutes=minutes_ago))
         for i, (group_id, user_id, minutes_ago, text) in enumerate(_MESSAGES)
+    ] + [
+        ChatMessage(id=f"msg_seed_event_{i:03d}", room_id=event_room_id(event_id), user_id=user_id, text=text,
+                    created_at=reference_now - timedelta(minutes=minutes_ago))
+        for i, (event_id, user_id, minutes_ago, text) in enumerate(_EVENT_MESSAGES)
     ]
 
     groups = []

@@ -34,7 +34,7 @@ from m3_profile.views import avatar_html, render_user_card, render_user_switcher
 from m4_matching.engine import match_for_event, plural_pl
 from m4_matching.widgets import render_recommendations
 from m5_chat.chat_view import render_attendance_controls
-from m5_chat.group_view import render_event_group_entry
+from m5_chat.group_view import render_event_chat_entry
 from m5_chat.inbox import render_inbox
 from shared import state
 from shared.config import APP_NAME, APP_TAGLINE, FEATURES, MAX_MATCHES_IN_PANEL
@@ -617,7 +617,7 @@ def render_event_panel(storage: Storage, user: User, event: Event | None) -> Non
     st.markdown(f'<div class="m1-facts">{"".join(facts)}</div>', unsafe_allow_html=True)
 
     render_attendance_controls(storage, event, user)
-    render_event_group_entry(storage, event.id, user)   # M5: czat grupy / zaproszenia / „Zaproś na wyjście”
+    render_event_chat_entry(storage, event.id, user)    # M5: zaproszenia · czat grupy | czat wydarzenia
     if event.description:
         st.markdown(f'<div class="m1-desc">{html.escape(event.description)}</div>', unsafe_allow_html=True)
 

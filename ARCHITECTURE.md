@@ -133,8 +133,9 @@ erDiagram
 ```
 
 Obiekty pochodne (nie są tabelami): `MatchResult` (M4 → UI), `Recommendation` (M4 → UI), `FilterCriteria` (filtry → `Storage.list_events`).
-Pokoje czatu to tylko konwencja ID: `group:<group_id>` (czat grupy na wydarzenie), `dm:<user_a>:<user_b>` (prywatny 1:1).
-`event:<event_id>` (publiczny czat wydarzenia) zostaje w kontrakcie, ale UI już go nie otwiera — zastąpiły go grupy (§4.4).
+Pokoje czatu to tylko konwencja ID: `group:<group_id>` (czat grupy na wydarzenie), `event:<event_id>` (czat wszystkich
+uczestników wydarzenia — obok czatu grupy, w tym samym miejscu, przełącznik „Grupa / Wszyscy”), `dm:<user_a>:<user_b>`
+(prywatny 1:1).
 
 ### 4.2 Fizyczny schemat (tabele dokumentowe)
 
@@ -184,7 +185,8 @@ sequenceDiagram
 | Czat z profilu = zwykły DM. „Napisz” na karcie **pasującej osoby** i lista **Idą / Interesuje ich** w panelu wydarzenia = zaproszenie do *mojej* grupy na to wydarzenie (powstaje przy pierwszym zaproszeniu) | `m5_chat/group_view.py` |
 | Jedna osoba = najwyżej jedna grupa na wydarzenie; przyjęcie innego zaproszenia = wyjście z obecnej | `groups.accept_invite` |
 | Nową osobę zatwierdza **każdy** członek (karta głosowania na czacie); zapraszający jest „za” od razu, jeden głos „przeciw” odrzuca | `groups.invite` / `groups.vote` |
-| Zaproszona osoba czyta czat i wybiera „Dołącz” / „Odrzuć”; nad czatem nazwa wydarzenia i rząd awatarów (rośnie z każdą osobą) | `group_view.render_group_head` |
+| Zaproszona osoba widzi skład grupy, ale **treść czatu dopiero po „Dołącz”**; nad czatem nazwa wydarzenia i rząd awatarów (rośnie z każdą osobą) | `group_view.render_group_head` |
+| Czat wszystkich uczestników wydarzenia jest obok czatu grupy: przycisk „Czat wydarzenia” w panelu i przełącznik „Grupa / Wszyscy” w nagłówku czatu (ten sam arkusz) | `group_view.render_event_chat_entry`, `render_chat_switch` |
 | Grupę można opuścić; ostatnia osoba ją zamyka, a otwarte głosowania przeliczają się bez niej | `groups.leave_group` |
 
 ```mermaid
@@ -221,7 +223,7 @@ flowchart TD
     I & J & K & L --> P["M1 render_event_panel (prawy panel)"]
     P --> Q{"wybrany event?"}
     Q -->|nie| R["M4 render_recommendations"]
-    Q -->|tak| S["szczegóły · M5 Idę! · M5 ekipa (czat grupy / zaproszenia / Zaproś) · M4 match_for_event → M3 render_user_card"]
+    Q -->|tak| S["szczegóły · M5 Idę! · M5 czat grupy | czat wydarzenia (+ zaproszenia) · M4 match_for_event → M3 render_user_card"]
 ```
 
 Kluczowy trik: **lista i prawy panel renderują się po mapie**, więc klik w pinezkę ustawia `selected_event_id` i panel pokazuje event w *tym samym* przebiegu — bez dodatkowego `st.rerun()`.
@@ -243,7 +245,7 @@ Klucze prywatne modułów mają prefiks `m1_` … `m5_` — brak kolizji między
 ```mermaid
 stateDiagram-v2
     [*] --> MAP
-    MAP --> CHAT: „Czat grupy” / „Napisz” na pasującej osobie / „Ekipy”
+    MAP --> CHAT: „Czat grupy” / „Czat wydarzenia” / „Napisz” na pasującej osobie / „Ekipy”
     CHAT --> MAP: „← Mapa”
     MAP --> PROFILE_EDIT: ⚙️ Opcje → Edytuj profil
     PROFILE_EDIT --> MAP: Zapisz / Wróć

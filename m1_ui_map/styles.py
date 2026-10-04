@@ -237,6 +237,23 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
   border-radius: var(--krk-radius); box-shadow: var(--krk-shadow), 0 0 0 1px var(--krk-line);
   padding: 18px 18px 22px; gap: 0.7rem !important; flex-wrap: nowrap !important;
 }
+/* Arkusz sam jest `fixed` z top/bottom: `height: 100%` (wspólne z ciałami paneli) robiło go wysokim na cały
+   ekran, więc dół (np. pole wpisywania czatu) wystawał poza widok. Wysokość wynika z top/bottom. */
+.st-key-m1_sheet {height: auto;}
+/* Czat (M5): arkusz zajmuje prawie całe miejsce obok panelu szczegółów (po schowaniu panelu — cały ekran),
+   okno wiadomości wypełnia wysokość, a pole wpisywania zostaje na dole. */
+.st-key-m1_sheet:has(.st-key-m5_chat_root) {width: min(1100px, calc(100vw - var(--krk-right-w) - 3 * var(--krk-gap)));}
+.stApp:has(.st-key-m1_right_toggle input:checked) .st-key-m1_sheet:has(.st-key-m5_chat_root) {
+  width: min(1100px, calc(100vw - 2 * var(--krk-gap)));
+}
+[data-testid="stLayoutWrapper"]:has(> .st-key-m5_chat_root) {flex: 1 1 auto; min-height: 0;}
+.st-key-m5_chat_root {height: 100%; min-height: 0; flex-wrap: nowrap !important;}
+.st-key-m5_chat_root > [data-testid="stLayoutWrapper"]:has(.st-key-m5_chat_box) {flex: 1 1 auto; min-height: 0;}
+.st-key-m5_chat_root > [data-testid="stLayoutWrapper"]:has(.st-key-m5_chat_box) > [data-testid="stVerticalBlock"] {
+  height: 100%; min-height: 0; flex-wrap: nowrap !important;
+}
+[data-testid="stLayoutWrapper"]:has(> .st-key-m5_chat_box) {flex: 1 1 0; height: auto !important; min-height: 160px;}
+.st-key-m5_chat_box {height: 100% !important; max-height: none !important;}
 .st-key-m1_left:has(.st-key-m1_left_toggle input:checked) {transform: translateX(calc(-100% - var(--krk-gap)));}
 .st-key-m1_right:has(.st-key-m1_right_toggle input:checked) {transform: translateX(calc(100% + var(--krk-gap)));}
 
@@ -412,11 +429,17 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 /* M5: wejście do czatu grupy (moja ekipa / nowa ekipa / zaproszenie) — główna akcja panelu. */
 [class*="st-key-m5_grp_open_"] button, [class*="st-key-m5_grp_new_"] button, [class*="st-key-m5_grp_view_"] button {
   border-radius: 12px; height: 44px; font-weight: 650; border: none; color: #fff; background: var(--krk-grad);
-  box-shadow: 0 10px 22px -12px rgba(228, 87, 46, .9);
+  box-shadow: 0 10px 22px -12px rgba(228, 87, 46, .9); padding: 0 10px; white-space: nowrap;
 }
 [class*="st-key-m5_grp_open_"] button:hover, [class*="st-key-m5_grp_new_"] button:hover,
 [class*="st-key-m5_grp_view_"] button:hover {color: #fff; filter: brightness(1.05);}
 [class*="st-key-m5_grp_invite_"] {border-color: var(--krk-primary) !important; background: var(--krk-primary-soft);}
+[class*="st-key-m5_evt_open_"] button {
+  border-radius: 12px; height: 44px; font-weight: 650; background: var(--krk-surface-solid);
+  border: 1px solid var(--krk-line-strong); white-space: nowrap; padding: 0 10px;
+}
+[class*="st-key-m5_evt_open_"] button:hover {border-color: var(--krk-primary); color: var(--krk-primary);}
+.st-key-m5_chat_entry {flex-wrap: nowrap !important;}
 .st-key-m1_right_body [data-testid="stLinkButton"] a {border-radius: 12px; height: 44px;}
 .st-key-m1_right_body h4 {font-size: 1rem; font-weight: 700; letter-spacing: -0.01em;}
 
@@ -520,7 +543,7 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
   .st-key-m1_right {width: auto; left: var(--krk-gap); z-index: 22;}
   .st-key-m1_right:not(:has(.st-key-m1_detail_head)) {transform: translateX(calc(100% + 2 * var(--krk-gap)));}
   .st-key-m1_right:not(:has(.st-key-m1_detail_head)) .st-key-m1_right_toggle {display: none;}
-  .st-key-m1_sheet {width: auto; right: var(--krk-gap); z-index: 23;}
+  .st-key-m1_sheet, .st-key-m1_sheet:has(.st-key-m5_chat_root) {width: auto; right: var(--krk-gap); z-index: 23;}
 }
 </style>
 """

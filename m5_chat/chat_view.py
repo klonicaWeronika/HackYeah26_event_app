@@ -6,8 +6,8 @@ a nie cała aplikacja (mapa się nie przeładowuje).
 Układ: kolejne wiadomości jednej osoby to grupa. Cudze grupy po lewej, z klikalnym awatarem
 i imieniem (-> profil autora); własne po prawej, w kolorze akcentu. Tekst w dymkach
 przez html.escape -> zawsze dosłownie.
-Pokoje: DM (`dm:`) i czat grupy na wydarzenie (`group:`) — nagłówek grupy, komunikaty i karty
-głosowań rysuje m5_chat/group_view.py.
+Pokoje: czat grupy na wydarzenie (`group:`), czat wszystkich uczestników wydarzenia (`event:`) i DM (`dm:`).
+Nagłówek grupy, przełącznik „Grupa / Wszyscy”, komunikaty i karty głosowań rysuje m5_chat/group_view.py.
 """
 
 from __future__ import annotations
@@ -19,8 +19,8 @@ from collections.abc import Iterable
 
 import streamlit as st
 
-from m5_chat.group_view import group_signature, render_group_head, render_group_notice
-from m5_chat.groups import SYSTEM_USER_ID, GroupRole, group_id_of_room, role_in
+from m5_chat.group_view import group_signature, render_chat_switch, render_group_head, render_group_notice
+from m5_chat.groups import SYSTEM_USER_ID, GroupRole, group_id_of_room
 from m5_chat.service import (
     BUFFER_LIMIT, MAX_MESSAGE_LEN, Conversation, attendance_counts, can_access_room, css_string,
     escape_markdown, group_messages, list_conversations, refresh_messages, room_title, safe_avatar_src,
@@ -28,7 +28,7 @@ from m5_chat.service import (
 )
 from shared import state
 from shared.config import CHAT_POLL_SECONDS, FEATURES
-from shared.formatting import format_time
+from shared.formatting import format_time, format_when
 from shared.models import AttendanceStatus, ChatMessage, Event, User, dm_room_id
 from shared.state import View
 from shared.storage import Storage
@@ -120,27 +120,45 @@ def _render_group(group: list[ChatMessage], author: User | None, *, can_open_pro
 
 
 def render_chat_room(storage: Storage, user: User, room_id: str, *, height: int = 520) -> None:
-    """Pełny widok czatu w arkuszu nad listą: prywatna rozmowa (DM) albo czat grupy na wydarzenie.
+    """Pełny widok czatu w arkuszu nad listą: czat grupy na wydarzenie, czat wszystkich uczestników
+    wydarzenia (przełącznik „Grupa / Wszyscy” w nagłówku) albo prywatna rozmowa (DM).
 
-    Grupa: nad czatem nazwa wydarzenia i rząd awatarów; zaproszona osoba czyta, ale nie pisze.
+    Zaproszona do grupy osoba widzi nagłówek i skład grupy, ale nie treść czatu.
+    `height` — wysokość okna wiadomości poza arkuszem M1 (sandbox); w arkuszu okno wypełnia wysokość (CSS M1).
     """
+    with st.container(key="m5_chat_root", gap="small"):
+        if _render_room_head(storage, user, room_id):
+            _render_live_chat(storage, user, room_id, height)
+
+
+def _render_room_head(storage: Storage, user: User, room_id: str) -> bool:
+    """Nagłówek pokoju. False = bez treści czatu (cudzy DM, cudza grupa, nieprzyjęte zaproszenie)."""
     group_id = group_id_of_room(room_id)
     if group_id is not None:
-        if render_group_head(storage, user, group_id) is GroupRole.NONE:
-            return
-        height -= 80                                     # rząd awatarów nad czatem
-    else:
-        col_back, col_title = st.columns([1, 5], vertical_alignment="center")
-        with col_back:
-            st.button("← Mapa", on_click=state.go_to, args=(View.MAP,), key="m5_back")
-        if not can_access_room(room_id, user.id):
-            # Np. po „Zaloguj jako” z otwartym DM poprzedniej osoby — nie pokazujemy cudzej rozmowy.
-            col_title.warning("🔒 To prywatna rozmowa innych osób.")
-            return
-        with col_title:
-            # Tytuł eventu (scraper, formularz M2) i imiona w DM to dane z zewnątrz -> bez markdownu.
-            st.markdown(f"### {escape_markdown(room_title(storage, room_id, viewer_id=user.id))}")
+        return render_group_head(storage, user, group_id) is GroupRole.MEMBER
+    kind, _, event_id = room_id.partition(":")
+    col_back, col_title, *col_switch = st.columns(
+        [1, 4, 2.4] if kind == "event" else [1, 5], vertical_alignment="center",
+    )
+    with col_back:
+        st.button("← Mapa", on_click=state.go_to, args=(View.MAP,), key="m5_back")
+    if not can_access_room(room_id, user.id):
+        # Np. po „Zaloguj jako” z otwartym DM poprzedniej osoby — nie pokazujemy cudzej rozmowy.
+        col_title.warning("🔒 To prywatna rozmowa innych osób.")
+        return False
+    with col_title:
+        # Tytuł eventu (scraper, formularz M2) i imiona w DM to dane z zewnątrz -> bez markdownu.
+        st.markdown(f"### {escape_markdown(room_title(storage, room_id, viewer_id=user.id))}")
+        if kind == "event" and (event := storage.get_event(event_id)):
+            st.caption(escape_markdown(f"{format_when(event)} · {event.venue} · czat wszystkich uczestników"))
+    if col_switch:
+        with col_switch[0]:
+            render_chat_switch(storage, user, event_id, room_id)
+    return True
 
+
+def _render_live_chat(storage: Storage, user: User, room_id: str, height: int) -> None:
+    group_id = group_id_of_room(room_id)
     buf_key, show_key = f"m5_buf_{room_id}", f"m5_show_{room_id}"
     # Ten kod NIE wykonuje się w tickach fragmentu, tylko przy pełnym rerunie (wejście do pokoju,
     # „Reset demo”, zmiana użytkownika) -> wtedy bufor ładujemy od nowa; ticki dociągają tylko nowości.
@@ -154,18 +172,14 @@ def render_chat_room(storage: Storage, user: User, room_id: str, *, height: int 
         started = time.perf_counter()
         group = storage.get_group(group_id) if group_id else None
         if group_id is not None and group_signature(group) != rendered_signature:
-            st.rerun()
-        can_write = group_id is None or role_in(group, user.id) is GroupRole.MEMBER
+            st.rerun()                  # także wyjście z grupy w innej karcie -> nagłówek pokaże kłódkę
         # Okno wiadomości rezerwujemy NAD polem wpisywania, ale wypełniamy je dopiero po obsłudze wysyłki:
         # nowa wiadomość jest widoczna w tym samym przebiegu, bez dodatkowego st.rerun().
         # autoscroll trzyma dół tylko, gdy użytkownik sam nie przewinął w górę. Odstępy grup daje CSS (gap=None).
-        chat_box = st.container(height=height, autoscroll=True, gap=None)
-        if can_write:
-            text = st.chat_input("Napisz wiadomość…", key=f"m5_input_{room_id}", max_chars=MAX_MESSAGE_LEN)
-            if text:
-                _send_with_limit(storage, room_id, user.id, text)
-        else:
-            st.caption("Dołącz do grupy, żeby pisać na czacie.")
+        chat_box = st.container(height=height, autoscroll=True, gap=None, key="m5_chat_box")
+        text = st.chat_input("Napisz wiadomość…", key=f"m5_input_{room_id}", max_chars=MAX_MESSAGE_LEN)
+        if text:
+            _send_with_limit(storage, room_id, user.id, text)
 
         buffer = refresh_messages(storage, room_id, st.session_state.get(buf_key, []))
         st.session_state[buf_key] = buffer
