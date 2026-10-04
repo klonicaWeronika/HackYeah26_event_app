@@ -14,8 +14,8 @@ from collections.abc import Iterable
 from m1_ui_map.map_view import CATEGORY_COLORS
 from shared.models import Category
 
-TOPBAR_H = 64           # px — górny pasek (logo, wyszukiwarka, akcje)
-CATBAR_H = 84           # px — pasek kategorii
+TOPBAR_H = 72           # px — górny pasek (logo, wyszukiwarka, akcje)
+CATBAR_H = 92           # px — pasek kategorii
 LEFT_W = "clamp(400px, 28vw, 480px)"       # lista wydarzeń
 RIGHT_W = "clamp(380px, 26vw, 460px)"      # szczegóły wydarzenia
 SHEET_W = 640                              # px — czat / profil / formularz w arkuszu nad listą
@@ -101,8 +101,10 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 }
 .st-key-m1_topbar > [data-testid="stLayoutWrapper"] {flex: 0 0 auto;}
 .st-key-m1_topbar_row {
-  height: var(--krk-topbar); min-height: var(--krk-topbar); padding: 0 20px; gap: 18px !important; flex-wrap: nowrap !important;
+  height: var(--krk-topbar); min-height: var(--krk-topbar); padding: 0 28px; gap: 18px !important; flex-wrap: nowrap !important;
 }
+/* Streamlit daje kontenerowi markdownu margin-bottom: -1rem -> HTML (logo, profil) siedzi 8 px niżej niż widżety. */
+.st-key-m1_topbar_row [data-testid="stMarkdownContainer"] {margin-bottom: 0;}
 .m1-brand {display: flex; align-items: center; gap: 11px; white-space: nowrap; user-select: none;}
 .m1-brand img {width: 38px; height: 38px; display: block; filter: drop-shadow(0 6px 12px rgba(228, 87, 46, .35));}
 .m1-brand-name {font-size: 1.28rem; font-weight: 800; letter-spacing: -0.03em; color: var(--krk-text); line-height: 1.05;}
@@ -169,12 +171,13 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 .st-key-m1_actions [data-testid="stPopover"] button:hover {filter: brightness(1.15); color: var(--krk-surface-solid);}
 
 /* ============ Pasek kategorii (kółka z liczbą jak na job boardach) ============ */
-.st-key-m1_catbar {height: var(--krk-catbar); min-height: var(--krk-catbar); padding: 0 20px 4px; justify-content: center; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;}
+.st-key-m1_catbar {height: var(--krk-catbar); min-height: var(--krk-catbar); padding: 6px 28px; justify-content: center; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;}
 .st-key-m1_catbar::-webkit-scrollbar {display: none;}
 .st-key-m1_catbar [data-testid="stButtonGroup"] {width: max-content; margin: 0 auto;}
 .st-key-m1_catbar [data-testid="stButtonGroup"] > div {flex-wrap: nowrap !important; gap: 4px !important; justify-content: center;}
+/* Stała szerokość = kółka w równych odstępach (co 104 px); dłuższa etykieta wystaje symetrycznie, bez ucinania. */
 .st-key-m1_catbar button[data-variant^="pills"] {
-  position: relative; flex-direction: column; gap: 5px; height: 78px; min-width: 74px; padding: 10px 4px 2px;
+  position: relative; flex-direction: column; gap: 5px; height: 78px; width: 100px; min-width: 100px; padding: 10px 4px 2px;
   border: none !important; background: transparent !important; box-shadow: none !important; border-radius: 14px;
   color: var(--krk-text); overflow: visible;
 }
@@ -267,6 +270,8 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 .m1-panel-sub b {color: var(--krk-text); font-weight: 650;}
 .st-key-m1_list_head {gap: 4px !important; flex-wrap: nowrap !important;}
 .st-key-m1_list_head > [data-testid="stElementContainer"]:first-child {flex: 1 1 auto !important; min-width: 0; width: auto !important;}
+/* Jak w prawym panelu: bez ujemnego marginesu markdownu nagłówek nie wchodzi na pigułki, a karty na siebie. */
+.st-key-m1_left_body [data-testid="stMarkdownContainer"]:has(.m1-panel-title, .m1-card, .m1-empty) {margin-bottom: 0;}
 .st-key-m1_list_head [data-testid="stSelectbox"] [data-baseweb="select"] > div {
   border-radius: 999px; min-height: 0; height: 34px; font-size: 0.8rem; background: var(--krk-soft);
   border-color: transparent;
@@ -281,16 +286,12 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 }
 .st-key-m1_f_clear button:hover {color: var(--krk-primary); background: var(--krk-soft);}
 
-[class*="st-key-m1_f_when"] [data-testid="stButtonGroup"] > div {
-  flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; gap: 5px !important;
-  mask-image: linear-gradient(90deg, #000 88%, transparent); -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent);
-  padding-right: 24px;
-}
-[class*="st-key-m1_f_when"] [data-testid="stButtonGroup"] > div::-webkit-scrollbar {display: none;}
+/* Pigułki dat zawijają się (zamiast ukrytego przewijania w bok), więc „Daty” zawsze jest widoczne. */
+[class*="st-key-m1_f_when"] [data-testid="stButtonGroup"] > div {flex-wrap: wrap !important; gap: 5px !important;}
 .m1-where {display: flex; align-items: center; gap: 3px;}
 .m1-where .material-ico {font-size: 15px;}
 [class*="st-key-m1_f_when"] button[data-variant^="pills"] {
-  flex: 0 0 auto; border-radius: 999px; height: 32px; min-height: 0; padding: 0 11px; white-space: nowrap;
+  flex: 0 0 auto; border-radius: 999px; height: 32px; min-height: 0; padding: 0 8px; white-space: nowrap;
   background: var(--krk-soft); border: 1px solid transparent; font-size: 0.8rem; font-weight: 500;
 }
 [class*="st-key-m1_f_when"] button[aria-pressed="true"] {
@@ -367,6 +368,9 @@ header[data-testid="stHeader"], [data-testid="stDecoration"], [data-testid="stSi
 
 /* ============ Panel szczegółów ============ */
 .st-key-m1_right_body {padding-top: 14px;}
+/* margin-bottom: -1rem Streamlita kasuje margines <p>; nasze bloki HTML go nie mają, więc wchodziły na następny element. */
+.st-key-m1_right_body [data-testid="stMarkdownContainer"]:has(.m1-panel-title, .m1-hero, .m1-facts, .m1-desc, .m1-section),
+.st-key-m1_matches [data-testid="stMarkdownContainer"] {margin-bottom: 0;}
 .st-key-m1_detail_head {gap: 6px !important;}
 .st-key-m1_detail_head button {
   width: 36px; height: 36px; min-height: 0; padding: 0; border-radius: 50%; border: none;
