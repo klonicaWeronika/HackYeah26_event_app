@@ -9,6 +9,7 @@ nowe profile z onboardingu pokazują samo imię.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable
 from typing import NamedTuple
 
@@ -41,6 +42,19 @@ def persona_label(user: User) -> str:
     """'Ola · 🎬 start demo' dla persony demo, samo imię dla pozostałych."""
     persona = DEMO_PERSONAS.get(user.id)
     return f"{user.name} · {persona.tag}" if persona else user.name
+
+
+def switcher_labels(users: Iterable[User]) -> dict[str, str]:
+    """{id: etykieta} do „Zaloguj jako” — zawsze unikalne.
+
+    Selectbox Streamlita odnajduje wybór po TEKŚCIE etykiety, więc dwie osoby o tym samym imieniu
+    (np. „Ewa” z onboardingu i „Ewa” z danych przykładowych) przełączałyby na złą osobę.
+    Powtórzone etykiety dostają końcówkę ID: „Ewa · #a1b2”.
+    """
+    users = list(users)
+    labels = {u.id: persona_label(u) for u in users}
+    counts = Counter(labels.values())
+    return {uid: f"{label} · #{uid[-4:]}" if counts[label] > 1 else label for uid, label in labels.items()}
 
 
 def persona_scenario(user_id: str) -> str | None:

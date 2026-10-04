@@ -9,7 +9,7 @@ from streamlit.testing.v1 import AppTest
 
 from m1_ui_map.layout import (
     LOGO_MARK_PATH, LOGO_PATH, category_label, date_range_for, event_card_html, full_date, plans_caption,
-    sort_events,
+    sort_events, theme_switch_script,
 )
 from m1_ui_map.location import PLACES, Place
 from shared.models import CATEGORY_META, Category, Event, FilterCriteria
@@ -68,6 +68,31 @@ def test_plans_caption_polish_plural(going, expected):
 def test_logo_files_exist():
     for path in (LOGO_PATH, LOGO_MARK_PATH):
         assert Path(path).read_text(encoding="utf-8").lstrip().startswith("<svg")
+
+
+def test_wordmark_spells_app_name():
+    from shared.config import APP_NAME, APP_WORDMARK
+
+    assert "".join(APP_WORDMARK) == APP_NAME
+
+
+def test_theme_switch_script_uses_streamlit_theme_cache():
+    script = theme_switch_script("Dark")
+    assert "stActiveTheme-" in script and "-v2" in script and "\"Dark\"" not in script
+    assert "JSON.stringify('Dark')" in script and "location.reload()" in script
+    with pytest.raises(ValueError):
+        theme_switch_script("Dark'); alert(1); ('")
+
+
+def test_theme_toggle_emits_script_once(app_storage):
+    at = _run_app()
+    assert not at.get("html"), "bez kliknięcia żadnego skryptu"
+    at.button(key="m1_theme").click().run()
+    scripts = [h.proto.body for h in at.get("html") if "stActiveTheme-" in h.proto.body]
+    assert len(scripts) == 1 and "JSON.stringify('Dark')" in scripts[0]      # AppTest = motyw jasny
+    at.run()
+    assert not [h for h in at.get("html") if "stActiveTheme-" in h.proto.body], "skrypt tylko raz"
+    assert not at.exception
 
 
 @pytest.mark.parametrize("today, preset, expected", [

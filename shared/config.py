@@ -5,7 +5,8 @@ Feature flagi: funkcja OPCJONALNA trafia do menu dopiero, gdy spełnia swoje DoD
 Włączamy je na checkpointach integracyjnych (patrz ARCHITECTURE.md -> Harmonogram).
 """
 
-APP_NAME = "KRK Razem"
+APP_NAME = "Meevent"
+APP_WORDMARK = ("Mee", "vent")     # logo w górnym pasku: początek + reszta w kolorze marki (razem = APP_NAME)
 APP_TAGLINE = "Wyjdź na miasto — razem"
 
 DEFAULT_USER_ID = "u_ola"          # użytkownik demo (brak logowania w MVP)

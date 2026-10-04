@@ -1,4 +1,4 @@
-# ARCHITECTURE — KRK Razem (HackYeah 2026)
+# ARCHITECTURE — Meevent (HackYeah 2026)
 
 > Aplikacja webowa (Streamlit) ułatwiająca wspólne wyjścia na wydarzenia kulturalne i społeczne w Krakowie:
 > **mapa wydarzeń → szczegóły → osoby o podobnych zainteresowaniach, które też idą → czat.**
@@ -170,7 +170,7 @@ sequenceDiagram
 flowchart TD
     A["rerun (interakcja / start)"] --> B["st.set_page_config · get_storage() · state.init()"]
     B --> C["user = storage.get_user(state.current_user_id())"]
-    C --> D["M1 render_header — wyszukiwarka + lokalizacja/promień, awatar M3, menu"]
+    C --> D["M1 render_header — wyszukiwarka + lokalizacja/promień, przełącznik motywu, awatar M3, menu"]
     D --> E["M1 render_filters (lewy panel) → FilterCriteria → state.set_filters"]
     E --> F["events = within_radius(storage.list_events(criteria))"]
     F --> H["M1 render_map (cały ekran) → klik? → state.select_event(id)"]

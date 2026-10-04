@@ -1,4 +1,4 @@
-# Konfiguracja Streamlit dla KRK Razem (właściciel: M1). Nazwa i podtytuł aplikacji: shared/config.py.
+# Konfiguracja Streamlit dla Meevent (właściciel: M1). Nazwa i podtytuł aplikacji: shared/config.py.
 
 [theme]
 # Wspólne dla jasnego i ciemnego motywu. Inter z Google Fonts; bez internetu przeglądarka bierze
